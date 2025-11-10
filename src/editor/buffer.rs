@@ -3,7 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::editor::{Result, buffer::row::Row, cursor::Cursor, viewport::Viewport};
+use crate::editor::{
+    Result, backend::TerminalBackend, buffer::row::Row, cursor::Cursor, viewport::Viewport,
+};
 
 mod row;
 
@@ -78,8 +80,8 @@ impl Buffer {
     }
 
     /// Returns the text of the buffer that should be visible on screen.
-    pub fn visible_text(&self, viewport: &Viewport) -> String {
-        let mut display_text = Vec::with_capacity(viewport.height());
+    pub fn visible_text(&self, viewport: &Viewport) -> Vec<String> {
+        let mut visible_text = Vec::with_capacity(viewport.height());
 
         for row in self
             .rows
@@ -93,10 +95,10 @@ impl Buffer {
                 .take(viewport.width())
                 .collect::<String>();
 
-            display_text.push(visible_line);
+            visible_text.push(visible_line);
         }
 
-        display_text.join("\r\n")
+        visible_text
     }
 
     /// Returns the full text of the buffer.
@@ -111,5 +113,22 @@ impl Buffer {
     /// Returns the row at the given index or `None` if the index is out of bounds.
     pub fn row(&self, row: usize) -> Option<&Row> {
         self.rows.get(row)
+    }
+
+    /// Renders the row at the given screen row and viewport.
+    pub fn render_row(
+        &self,
+        row: usize,
+        viewport: &Viewport,
+        backend: &TerminalBackend,
+    ) -> Result<()> {
+        let visible_chars: String = self
+            .row(row)
+            .map(|r| r.visible_chars(viewport))
+            .unwrap_or_default()
+            .iter()
+            .collect();
+
+        backend.write(&visible_chars)
     }
 }

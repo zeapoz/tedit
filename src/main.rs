@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-use crate::editor::{Editor, backend::TerminalBackend};
+use crate::editor::Editor;
 
 mod editor;
 
@@ -14,14 +14,10 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    TerminalBackend::initialize()?;
-
     let args = Args::parse();
     if let Ok(mut editor) = Editor::new(args.file) {
         editor.run()?;
     }
-
-    TerminalBackend::deinitialize()?;
 
     Ok(())
 }

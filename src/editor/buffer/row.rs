@@ -1,3 +1,5 @@
+use crate::editor::viewport::Viewport;
+
 #[derive(Debug)]
 pub struct Row {
     /// The text of the row.
@@ -46,6 +48,14 @@ impl Row {
     pub fn append_row(&mut self, row: &Self) {
         self.text.push_str(&row.text);
         self.len += row.len;
+    }
+
+    /// Returns a `Vec` of characters that should be visible on screen given a [`Viewport`].
+    pub fn visible_chars(&self, viewport: &Viewport) -> Vec<char> {
+        self.chars()
+            .skip(viewport.col_offset)
+            .take(viewport.width())
+            .collect()
     }
 
     /// Returns the text of the row.

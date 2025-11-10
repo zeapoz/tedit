@@ -1,4 +1,4 @@
-use std::io::stdout;
+use std::io::{Write, stdout};
 
 use crossterm::{
     cursor, event, execute,
@@ -12,7 +12,7 @@ pub struct TerminalBackend;
 
 impl TerminalBackend {
     /// Initializes the terminal backend.
-    pub fn initialize() -> Result<()> {
+    pub fn initialize() -> Result<Self> {
         terminal::enable_raw_mode()?;
         execute!(
             stdout(),
@@ -21,11 +21,11 @@ impl TerminalBackend {
             cursor::MoveTo(0, 0),
             terminal::Clear(ClearType::All),
         )?;
-        Ok(())
+        Ok(Self)
     }
 
     /// Deinitializes the terminal backend.
-    pub fn deinitialize() -> Result<()> {
+    pub fn deinitialize(&self) -> Result<()> {
         execute!(
             stdout(),
             terminal::LeaveAlternateScreen,
@@ -36,31 +36,43 @@ impl TerminalBackend {
     }
 
     /// Clears the terminal viewport.
-    pub fn clear() -> Result<()> {
+    pub fn clear(&self) -> Result<()> {
         execute!(stdout(), terminal::Clear(ClearType::All))?;
         Ok(())
     }
 
+    /// Writes text to the terminal.
+    pub fn write(&self, s: &str) -> Result<()> {
+        write!(stdout(), "{s}")?;
+        Ok(())
+    }
+
+    /// Flushes the terminal output.
+    pub fn flush(&self) -> Result<()> {
+        stdout().flush()?;
+        Ok(())
+    }
+
     /// Updates the cursor position on screen.
-    pub fn move_cursor(row: u16, col: u16) -> Result<()> {
+    pub fn move_cursor(&self, row: u16, col: u16) -> Result<()> {
         execute!(stdout(), cursor::MoveTo(row, col))?;
         Ok(())
     }
 
     /// Hides the cursor.
-    pub fn hide_cursor() -> Result<()> {
+    pub fn hide_cursor(&self) -> Result<()> {
         execute!(stdout(), cursor::Hide)?;
         Ok(())
     }
 
     /// Shows the cursor.
-    pub fn show_cursor() -> Result<()> {
+    pub fn show_cursor(&self) -> Result<()> {
         execute!(stdout(), cursor::Show)?;
         Ok(())
     }
 
     /// Returns the size of the terminal viewport.
-    pub fn size() -> Result<(u16, u16)> {
+    pub fn size(&self) -> Result<(u16, u16)> {
         let size = crossterm::terminal::size()?;
         Ok(size)
     }

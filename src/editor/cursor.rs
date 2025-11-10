@@ -1,4 +1,6 @@
-use crate::editor::buffer::Buffer;
+use crate::editor::{
+    Result, backend::TerminalBackend, buffer::Buffer, gutter::Gutter, viewport::Viewport,
+};
 
 #[derive(Debug, Default)]
 pub struct Cursor {
@@ -92,12 +94,34 @@ impl Cursor {
         self.last_col = 0;
     }
 
+    /// Moves the cursor to the start of the next row.
     pub fn move_to_start_of_next_row(&mut self, buffer: &Buffer) {
         let next_row = self.row.saturating_add(1);
-        if let Some(row) = buffer.row(next_row) {
+        if buffer.row(next_row).is_some() {
             self.row = next_row;
             self.col = 0;
             self.last_col = 0;
         }
+    }
+
+    /// Returns the screen position of the cursor relative to the viewport and the gutter.
+    pub fn screen_position(&self, viewport: &Viewport, gutter: &Gutter) -> (usize, usize) {
+        (
+            self.col - viewport.col_offset + gutter.width(),
+            self.row - viewport.row_offset,
+        )
+    }
+
+    /// Renders the cursor.
+    pub fn render(
+        &self,
+        viewport: &Viewport,
+        gutter: &Gutter,
+        backend: &TerminalBackend,
+    ) -> Result<()> {
+        let (cursor_column, cursor_row) = self.screen_position(viewport, gutter);
+        backend.move_cursor(cursor_column as u16, cursor_row as u16)?;
+
+        Ok(())
     }
 }

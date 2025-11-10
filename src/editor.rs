@@ -1,19 +1,23 @@
-use std::{
-    io::{self, Write, stdout},
-    path::Path,
-};
+use std::{io, path::Path};
 
 use crossterm::event::{
     self, Event, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use thiserror::Error;
 
-use crate::editor::{backend::TerminalBackend, buffer::Buffer, cursor::Cursor, viewport::Viewport};
+use crate::editor::{
+    backend::TerminalBackend, buffer::Buffer, cursor::Cursor, gutter::Gutter, viewport::Viewport,
+};
 
 pub mod backend;
 mod buffer;
 mod cursor;
+mod gutter;
 mod viewport;
+
+// TODO: Make this adapt to the current buffer/be configurable.
+/// The width of the gutter.
+const GUTTER_WIDTH: usize = 6;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -31,22 +35,33 @@ pub struct Editor {
     cursor: Cursor,
     /// The current viewport.
     viewport: Viewport,
+    /// The gutter.
+    gutter: Gutter,
+    /// The terminal backend.
+    backend: TerminalBackend,
 }
 
 impl Editor {
     /// Returns a new editor.
     pub fn new<P: AsRef<Path>>(file: Option<P>) -> Result<Self> {
+        let backend = TerminalBackend::initialize()?;
+
         let buffer = if let Some(path) = file {
             Buffer::read_file(path).unwrap_or_default()
         } else {
             Buffer::default()
         };
 
-        let (columns, rows) = TerminalBackend::size()?;
+        let (columns, rows) = backend.size()?;
+        let gutter = Gutter::new(GUTTER_WIDTH);
+        let viewport = Viewport::new(columns as usize - gutter.width(), rows as usize);
+
         Ok(Self {
             buffer,
             cursor: Cursor::default(),
-            viewport: Viewport::new(columns as usize, rows as usize),
+            viewport,
+            gutter,
+            backend,
         })
     }
 
@@ -62,9 +77,6 @@ impl Editor {
         loop {
             self.viewport.scroll_to_cursor(&self.cursor);
             self.render()?;
-
-            let (cursor_column, cursor_row) = self.viewport.cursor_screen_position(&self.cursor);
-            TerminalBackend::move_cursor(cursor_column as u16, cursor_row as u16)?;
 
             match event::read()? {
                 Event::Key(event) => match event.code {
@@ -117,25 +129,45 @@ impl Editor {
                     ..
                 }) => {
                     let (logical_col, logical_row) =
-                        self.viewport.screen_position(column as usize, row as usize);
+                        self.viewport
+                            .screen_position(column as usize, row as usize, &self.gutter);
                     self.cursor.move_to(logical_col, logical_row, &self.buffer);
                 }
                 _ => {}
             }
         }
 
-        Ok(())
+        self.exit()
+    }
+
+    /// Exits the editor.
+    pub fn exit(&self) -> Result<()> {
+        self.backend.deinitialize()
     }
 
     /// Renders the editor to the terminal.
     pub fn render(&self) -> Result<()> {
-        TerminalBackend::hide_cursor()?;
-        TerminalBackend::move_cursor(0, 0)?;
-        TerminalBackend::clear()?;
+        self.backend.hide_cursor()?;
+        self.backend.move_cursor(0, 0)?;
+        self.backend.clear()?;
 
-        write!(stdout(), "{}", self.buffer.visible_text(&self.viewport))?;
+        for screen_row in 0..self.viewport.height() {
+            if screen_row > 0 {
+                self.backend.write("\r\n")?;
+            }
 
-        TerminalBackend::show_cursor()?;
+            let logical_row = self.viewport.row_offset + screen_row;
+            self.gutter.render_row(logical_row, &self.backend)?;
+            self.buffer
+                .render_row(logical_row, &self.viewport, &self.backend)?;
+        }
+
+        self.cursor
+            .render(&self.viewport, &self.gutter, &self.backend)?;
+
+        self.backend.show_cursor()?;
+        self.backend.flush()?;
+
         Ok(())
     }
 }

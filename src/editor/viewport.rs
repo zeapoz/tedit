@@ -1,4 +1,4 @@
-use crate::editor::cursor::Cursor;
+use crate::editor::{cursor::Cursor, gutter::Gutter};
 
 #[derive(Debug)]
 pub struct Viewport {
@@ -49,17 +49,12 @@ impl Viewport {
         scrolled
     }
 
-    /// Returns the screen position of the cursor relative to the viewport.
-    pub fn cursor_screen_position(&mut self, cursor: &Cursor) -> (usize, usize) {
-        (
-            cursor.col() - self.col_offset,
-            cursor.row() - self.row_offset,
-        )
-    }
-
     /// Returns the logical position from a position on the screen.
-    pub fn screen_position(&mut self, col: usize, row: usize) -> (usize, usize) {
-        (self.col_offset + col, self.row_offset + row)
+    pub fn screen_position(&mut self, col: usize, row: usize, gutter: &Gutter) -> (usize, usize) {
+        (
+            self.col_offset + col - gutter.width(),
+            self.row_offset + row,
+        )
     }
 
     /// Return the width of the viewport.
