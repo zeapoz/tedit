@@ -15,7 +15,7 @@ impl TerminalBackend {
     pub fn initialize() -> Result<()> {
         terminal::enable_raw_mode()?;
         execute!(
-            std::io::stdout(),
+            stdout(),
             terminal::EnterAlternateScreen,
             event::EnableMouseCapture,
             cursor::MoveTo(0, 0),
@@ -27,7 +27,7 @@ impl TerminalBackend {
     /// Deinitializes the terminal backend.
     pub fn deinitialize() -> Result<()> {
         execute!(
-            std::io::stdout(),
+            stdout(),
             terminal::LeaveAlternateScreen,
             event::DisableMouseCapture
         )?;
@@ -37,13 +37,25 @@ impl TerminalBackend {
 
     /// Clears the terminal viewport.
     pub fn clear() -> Result<()> {
-        execute!(std::io::stdout(), terminal::Clear(ClearType::All))?;
+        execute!(stdout(), terminal::Clear(ClearType::All))?;
         Ok(())
     }
 
     /// Updates the cursor position on screen.
     pub fn move_cursor(row: u16, col: u16) -> Result<()> {
         execute!(stdout(), cursor::MoveTo(row, col))?;
+        Ok(())
+    }
+
+    /// Hides the cursor.
+    pub fn hide_cursor() -> Result<()> {
+        execute!(stdout(), cursor::Hide)?;
+        Ok(())
+    }
+
+    /// Shows the cursor.
+    pub fn show_cursor() -> Result<()> {
+        execute!(stdout(), cursor::Show)?;
         Ok(())
     }
 

@@ -28,9 +28,12 @@ impl Cursor {
     }
 
     /// Moves the cursor to the given position.
-    pub fn move_to(&mut self, col: usize, row: usize) {
-        self.col = col;
-        self.row = row;
+    pub fn move_to(&mut self, col: usize, row: usize, buffer: &Buffer) {
+        if let Some(buffer_row) = buffer.row(row) {
+            self.row = row;
+            self.col = col.min(buffer_row.len());
+            self.last_col = self.col;
+        }
     }
 
     /// Moves the cursor one column to the left.
@@ -72,6 +75,29 @@ impl Cursor {
             } else if self.col < self.last_col {
                 self.col = self.last_col.min(row.len());
             }
+        }
+    }
+
+    /// Moves the cursor to the end of the current row.
+    pub fn move_to_end_of_row(&mut self, buffer: &Buffer) {
+        if let Some(row) = buffer.row(self.row) {
+            self.col = row.len();
+            self.last_col = row.len();
+        }
+    }
+
+    /// Moves the cursor to the start of the current row.
+    pub fn move_to_start_of_row(&mut self) {
+        self.col = 0;
+        self.last_col = 0;
+    }
+
+    pub fn move_to_start_of_next_row(&mut self, buffer: &Buffer) {
+        let next_row = self.row.saturating_add(1);
+        if let Some(row) = buffer.row(next_row) {
+            self.row = next_row;
+            self.col = 0;
+            self.last_col = 0;
         }
     }
 }
