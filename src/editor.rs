@@ -113,6 +113,10 @@ impl Editor {
                             self.buffer.join_rows(prev_row, self.cursor.row());
                             self.cursor.move_to(prev_row_len, prev_row, &self.buffer);
                         } else {
+                            // Don't delete characters if the cursor is at the start of the buffer.
+                            if self.cursor.col() == 0 && self.cursor.row() == 0 {
+                                continue;
+                            }
                             self.cursor.move_left(&self.buffer);
                             self.buffer.delete_char(&self.cursor);
                         }

@@ -19,12 +19,22 @@ impl Row {
     /// Inserts a character at the given index. Returns `true` if the character was inserted,
     /// `false` otherwise.
     pub fn insert_char(&mut self, index: usize, c: char) -> bool {
-        if index >= self.len {
+        if index > self.len {
             return false;
+        } else if index == self.len {
+            self.append_char(c);
+            return true;
         }
+
         self.text.insert(index, c);
         self.len += 1;
         true
+    }
+
+    /// Appends a character to the end of the row.
+    pub fn append_char(&mut self, c: char) {
+        self.text.push(c);
+        self.len += 1;
     }
 
     /// Deletes a character at the given index. Returns `true` if the character was deleted,
