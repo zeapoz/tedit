@@ -44,7 +44,7 @@ impl Editor {
         Ok(Self {
             buffer,
             cursor: Cursor::default(),
-            viewport: Viewport::new(columns, rows),
+            viewport: Viewport::new(columns as usize, rows as usize),
         })
     }
 
@@ -66,14 +66,14 @@ impl Editor {
             }
 
             let (cursor_column, cursor_row) = self.viewport.cursor_screen_position(&self.cursor);
-            TerminalBackend::move_cursor(cursor_column, cursor_row)?;
+            TerminalBackend::move_cursor(cursor_column as u16, cursor_row as u16)?;
 
             match event::read()? {
                 Event::Key(event) => match event.code {
-                    KeyCode::Left => self.cursor.move_left(),
-                    KeyCode::Right => self.cursor.move_right(),
-                    KeyCode::Up => self.cursor.move_up(),
-                    KeyCode::Down => self.cursor.move_down(),
+                    KeyCode::Left => self.cursor.move_left(&self.buffer),
+                    KeyCode::Right => self.cursor.move_right(&self.buffer),
+                    KeyCode::Up => self.cursor.move_up(&self.buffer),
+                    KeyCode::Down => self.cursor.move_down(&self.buffer),
                     KeyCode::Char('q') => break,
                     _ => {}
                 },
@@ -82,7 +82,11 @@ impl Editor {
                     column,
                     row,
                     ..
-                }) => self.cursor.move_to(column, row),
+                }) => {
+                    let (logical_col, logical_row) =
+                        self.viewport.screen_position(column as usize, row as usize);
+                    self.cursor.move_to(logical_col, logical_row);
+                }
                 _ => {}
             }
         }

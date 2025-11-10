@@ -3,18 +3,18 @@ use crate::editor::cursor::Cursor;
 #[derive(Debug)]
 pub struct Viewport {
     /// The column offset of the viewport.
-    pub col_offset: u16,
+    pub col_offset: usize,
     /// The row offset of the viewport.
-    pub row_offset: u16,
+    pub row_offset: usize,
     /// The width of the viewport.
-    width: u16,
+    width: usize,
     /// The height of the viewport.
-    height: u16,
+    height: usize,
 }
 
 impl Viewport {
     /// Returns a new viewport with the given dimensions.
-    pub fn new(width: u16, height: u16) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         Self {
             col_offset: 0,
             row_offset: 0,
@@ -50,20 +50,25 @@ impl Viewport {
     }
 
     /// Returns the screen position of the cursor relative to the viewport.
-    pub fn cursor_screen_position(&mut self, cursor: &Cursor) -> (u16, u16) {
+    pub fn cursor_screen_position(&mut self, cursor: &Cursor) -> (usize, usize) {
         (
             cursor.col() - self.col_offset,
             cursor.row() - self.row_offset,
         )
     }
 
+    /// Returns the logical position from a position on the screen.
+    pub fn screen_position(&mut self, col: usize, row: usize) -> (usize, usize) {
+        (self.col_offset + col, self.row_offset + row)
+    }
+
     /// Return the width of the viewport.
-    pub fn width(&self) -> u16 {
+    pub fn width(&self) -> usize {
         self.width
     }
 
     /// Return the height of the viewport.
-    pub fn height(&self) -> u16 {
+    pub fn height(&self) -> usize {
         self.height
     }
 }
