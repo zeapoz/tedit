@@ -15,6 +15,8 @@ pub struct Buffer {
     rows: Vec<Row>,
     /// The path of the file this buffer represents.
     filepath: Option<PathBuf>,
+    /// Whether the buffer has been modified.
+    pub dirty: bool,
 }
 
 impl Buffer {
@@ -25,17 +27,20 @@ impl Buffer {
         Ok(Self {
             rows: contents.split("\n").map(Row::new).collect(),
             filepath: Some(path.as_ref().to_path_buf()),
+            dirty: false,
         })
     }
 
     /// Inserts a character at the given cursor position. Returns `true` if the character was
     /// inserted, `false` otherwise.
     pub fn insert_char(&mut self, c: char, cursor: &Cursor) -> bool {
-        if let Some(row) = self.rows.get_mut(cursor.row()) {
-            row.insert_char(cursor.col(), c)
-        } else {
-            false
+        if let Some(row) = self.rows.get_mut(cursor.row())
+            && row.insert_char(cursor.col(), c)
+        {
+            self.dirty = true;
+            return true;
         }
+        false
     }
 
     /// Inserts a newline at the given cursor position.
@@ -46,6 +51,7 @@ impl Buffer {
             // PERF: All items have to be shifted when inserting newlines. We should use a
             // better data structure that doesn't require this to store the text.
             self.rows.insert(cursor.row() + 1, right);
+            self.dirty = true;
         }
     }
 
@@ -61,13 +67,12 @@ impl Buffer {
         // If the cursor is at the last column, join with the next row. Otherwise, just delete the
         // character.
         if cursor.col() == current_row_len {
-            let next_index = cursor.row().saturating_add(1);
-            let next_row = self.rows.remove(next_index);
-            if let Some(row) = self.rows.get_mut(cursor.row()) {
-                row.append_row(&next_row);
-            }
-        } else if let Some(row) = self.rows.get_mut(cursor.row()) {
-            row.delete_char(cursor.col());
+            let next_row = cursor.row().saturating_add(1);
+            self.join_rows(cursor.row(), next_row);
+        } else if let Some(row) = self.rows.get_mut(cursor.row())
+            && row.delete_char(cursor.col())
+        {
+            self.dirty = true;
         }
     }
 
@@ -76,38 +81,8 @@ impl Buffer {
         let right_row = self.rows.remove(right);
         if let Some(row) = self.rows.get_mut(left) {
             row.append_row(&right_row);
+            self.dirty = true;
         }
-    }
-
-    /// Returns the text of the buffer that should be visible on screen.
-    pub fn visible_text(&self, viewport: &Viewport) -> Vec<String> {
-        let mut visible_text = Vec::with_capacity(viewport.height());
-
-        for row in self
-            .rows
-            .iter()
-            .skip(viewport.row_offset)
-            .take(viewport.height())
-        {
-            let visible_line = row
-                .chars()
-                .skip(viewport.col_offset)
-                .take(viewport.width())
-                .collect::<String>();
-
-            visible_text.push(visible_line);
-        }
-
-        visible_text
-    }
-
-    /// Returns the full text of the buffer.
-    pub fn text(&self) -> String {
-        self.rows
-            .iter()
-            .map(|r| r.text())
-            .collect::<Vec<&str>>()
-            .join("\r\n")
     }
 
     /// Returns the row at the given index or `None` if the index is out of bounds.
@@ -130,5 +105,16 @@ impl Buffer {
             .collect();
 
         backend.write(&visible_chars)
+    }
+
+    /// Returns the path of the file this buffer represents, or `[Empty File]` if none.
+    pub fn file_name(&self) -> String {
+        /// The file name to use for an empty buffer.
+        const EMPTY_FILE: &str = "[Empty File]";
+
+        self.filepath
+            .as_ref()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or(EMPTY_FILE.into())
     }
 }

@@ -6,13 +6,15 @@ use crossterm::event::{
 use thiserror::Error;
 
 use crate::editor::{
-    backend::TerminalBackend, buffer::Buffer, cursor::Cursor, gutter::Gutter, viewport::Viewport,
+    backend::TerminalBackend, buffer::Buffer, cursor::Cursor, gutter::Gutter,
+    status_bar::StatusBar, viewport::Viewport,
 };
 
 pub mod backend;
 mod buffer;
 mod cursor;
 mod gutter;
+mod status_bar;
 mod viewport;
 
 // TODO: Make this adapt to the current buffer/be configurable.
@@ -37,6 +39,8 @@ pub struct Editor {
     viewport: Viewport,
     /// The gutter.
     gutter: Gutter,
+    /// The status bar.
+    status_bar: StatusBar,
     /// The terminal backend.
     backend: TerminalBackend,
 }
@@ -54,13 +58,19 @@ impl Editor {
 
         let (columns, rows) = backend.size()?;
         let gutter = Gutter::new(GUTTER_WIDTH);
-        let viewport = Viewport::new(columns as usize - gutter.width(), rows as usize);
+        let status_bar = StatusBar::default();
+
+        let viewport = Viewport::new(
+            columns as usize - gutter.width(),
+            rows as usize - status_bar.height(),
+        );
 
         Ok(Self {
             buffer,
             cursor: Cursor::default(),
             viewport,
             gutter,
+            status_bar,
             backend,
         })
     }
@@ -156,15 +166,18 @@ impl Editor {
         self.backend.clear()?;
 
         for screen_row in 0..self.viewport.height() {
-            if screen_row > 0 {
-                self.backend.write("\r\n")?;
+            let logical_row = self.viewport.row_offset + screen_row;
+            if self.buffer.row(logical_row).is_some() {
+                self.gutter.render_row(logical_row, &self.backend)?;
+                self.buffer
+                    .render_row(logical_row, &self.viewport, &self.backend)?;
             }
 
-            let logical_row = self.viewport.row_offset + screen_row;
-            self.gutter.render_row(logical_row, &self.backend)?;
-            self.buffer
-                .render_row(logical_row, &self.viewport, &self.backend)?;
+            self.backend.write("\r\n")?;
         }
+
+        self.status_bar
+            .render(&self.buffer, &self.cursor, &self.backend)?;
 
         self.cursor
             .render(&self.viewport, &self.gutter, &self.backend)?;

@@ -68,11 +68,6 @@ impl Row {
             .collect()
     }
 
-    /// Returns the text of the row.
-    pub fn text(&self) -> &str {
-        &self.text
-    }
-
     /// Returns the length of the row.
     pub fn len(&self) -> usize {
         self.len
