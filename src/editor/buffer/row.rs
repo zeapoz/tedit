@@ -77,4 +77,9 @@ impl Row {
     pub fn chars(&self) -> impl Iterator<Item = char> {
         self.text.chars()
     }
+
+    /// Returns the text of the row.
+    pub fn text(&self) -> &str {
+        &self.text
+    }
 }

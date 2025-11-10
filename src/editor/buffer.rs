@@ -1,13 +1,21 @@
 use std::{
-    mem,
+    fs, mem,
     path::{Path, PathBuf},
 };
+
+use thiserror::Error;
 
 use crate::editor::{
     Result, backend::TerminalBackend, buffer::row::Row, cursor::Cursor, viewport::Viewport,
 };
 
 mod row;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("missing path")]
+    MissingPath,
+}
 
 #[derive(Debug, Default)]
 pub struct Buffer {
@@ -90,6 +98,15 @@ impl Buffer {
         self.rows.get(row)
     }
 
+    /// Returns the full text of the buffer as a [`String`].
+    pub fn text(&self) -> String {
+        self.rows
+            .iter()
+            .map(|r| r.text().to_string())
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
     /// Renders the row at the given screen row and viewport.
     pub fn render_row(
         &self,
@@ -105,6 +122,25 @@ impl Buffer {
             .collect();
 
         backend.write(&visible_chars)
+    }
+
+    /// Saves the buffer to the given path. Or the current path if none is given.
+    pub fn save<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
+        let path = match (path.as_ref(), self.filepath.as_ref()) {
+            (None, None) => return Err(Error::MissingPath.into()),
+            (None, Some(p)) => p,
+            (Some(p), None) | (Some(p), Some(_)) => {
+                // Update the filepath to the new path.
+                let path = p.as_ref().to_path_buf();
+                self.filepath = Some(path);
+
+                p.as_ref()
+            }
+        };
+
+        fs::write(path, self.text())?;
+        self.dirty = false;
+        Ok(())
     }
 
     /// Returns the path of the file this buffer represents, or `[Empty File]` if none.

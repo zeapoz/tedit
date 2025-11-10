@@ -27,6 +27,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("io error: {0}")]
     IoError(#[from] io::Error),
+    #[error("buffer error: {0}")]
+    BufferError(#[from] buffer::Error),
 }
 
 #[derive(Debug)]
@@ -96,8 +98,11 @@ impl Editor {
                     KeyCode::Down => self.cursor.move_down(&self.buffer),
                     KeyCode::Home => self.cursor.move_to_start_of_row(),
                     KeyCode::End => self.cursor.move_to_end_of_row(&self.buffer),
-                    KeyCode::Char('c') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+                    KeyCode::Char('q') if event.modifiers == KeyModifiers::CONTROL => {
                         break;
+                    }
+                    KeyCode::Char('s') if event.modifiers == KeyModifiers::CONTROL => {
+                        self.buffer.save(None::<&str>)?;
                     }
                     KeyCode::Char(c) => {
                         if self.buffer.insert_char(c, &self.cursor) {
