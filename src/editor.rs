@@ -1,19 +1,25 @@
 use std::{io, path::Path};
 
-use crossterm::event::{
-    self, Event, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
+use crossterm::event::{self, Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
 
 use crate::editor::{
-    backend::TerminalBackend, buffer::Buffer, cursor::Cursor, gutter::Gutter,
-    status_bar::StatusBar, viewport::Viewport,
+    backend::TerminalBackend,
+    buffer::Buffer,
+    command::{CommandRegistry, register_commands},
+    cursor::Cursor,
+    gutter::Gutter,
+    keymap::Keymap,
+    status_bar::StatusBar,
+    viewport::Viewport,
 };
 
 pub mod backend;
 mod buffer;
+mod command;
 mod cursor;
 mod gutter;
+mod keymap;
 mod status_bar;
 mod viewport;
 
@@ -45,6 +51,12 @@ pub struct Editor {
     status_bar: StatusBar,
     /// The terminal backend.
     backend: TerminalBackend,
+    /// The command registry.
+    command_registry: CommandRegistry,
+    /// The mapping from key to command.
+    keymap: Keymap,
+    /// Whether the editor should quit.
+    pub should_quit: bool,
 }
 
 impl Editor {
@@ -67,6 +79,10 @@ impl Editor {
             rows as usize - status_bar.height(),
         );
 
+        // Initialize commands and keybindings.
+        let mut command_registry = CommandRegistry::new();
+        register_commands(&mut command_registry);
+
         Ok(Self {
             buffer,
             cursor: Cursor::default(),
@@ -74,6 +90,9 @@ impl Editor {
             gutter,
             status_bar,
             backend,
+            command_registry,
+            keymap: Keymap::default(),
+            should_quit: false,
         })
     }
 
@@ -86,61 +105,22 @@ impl Editor {
 
     /// Runs the editor main loop.
     pub fn run(&mut self) -> Result<()> {
-        loop {
+        while !self.should_quit {
             self.viewport.scroll_to_cursor(&self.cursor);
             self.render()?;
 
             match event::read()? {
-                Event::Key(event) => match event.code {
-                    KeyCode::Left => self.cursor.move_left(&self.buffer),
-                    KeyCode::Right => self.cursor.move_right(&self.buffer),
-                    KeyCode::Up => self.cursor.move_up(&self.buffer),
-                    KeyCode::Down => self.cursor.move_down(&self.buffer),
-                    KeyCode::Home => self.cursor.move_to_start_of_row(),
-                    KeyCode::End => self.cursor.move_to_end_of_row(&self.buffer),
-                    KeyCode::Char('q') if event.modifiers == KeyModifiers::CONTROL => {
-                        break;
-                    }
-                    KeyCode::Char('s') if event.modifiers == KeyModifiers::CONTROL => {
-                        self.buffer.save(None::<&str>)?;
-                    }
-                    KeyCode::Char(c) => {
-                        if self.buffer.insert_char(c, &self.cursor) {
-                            self.cursor.move_right(&self.buffer);
+                Event::Key(event) => {
+                    if let Some(command_name) = self.keymap.get(&event) {
+                        if let Some(command) = self.command_registry.get(command_name) {
+                            command.execute(self);
                         }
+                    } else if let KeyCode::Char(c) = event.code
+                        && self.buffer.insert_char(c, &self.cursor)
+                    {
+                        self.cursor.move_right(&self.buffer);
                     }
-                    KeyCode::Enter => {
-                        self.buffer.insert_newline(&self.cursor);
-                        self.cursor.move_to_start_of_next_row(&self.buffer);
-                    }
-                    KeyCode::Backspace => {
-                        // Check if we want to join the current row with the previous row. If so,
-                        // join the current row with the previous row. Otherwise, move the cursor
-                        // to the left and delete the character.
-                        if self.cursor.col() == 0 && self.cursor.row() > 0 {
-                            let prev_row = self.cursor.row().saturating_sub(1);
-                            let prev_row_len = self
-                                .buffer
-                                .row(prev_row)
-                                .map(|r| r.len())
-                                .unwrap_or_default();
-
-                            self.buffer.join_rows(prev_row, self.cursor.row());
-                            self.cursor.move_to(prev_row_len, prev_row, &self.buffer);
-                        } else {
-                            // Don't delete characters if the cursor is at the start of the buffer.
-                            if self.cursor.col() == 0 && self.cursor.row() == 0 {
-                                continue;
-                            }
-                            self.cursor.move_left(&self.buffer);
-                            self.buffer.delete_char(&self.cursor);
-                        }
-                    }
-                    KeyCode::Delete => {
-                        self.buffer.delete_char(&self.cursor);
-                    }
-                    _ => {}
-                },
+                }
                 Event::Mouse(MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
                     column,
