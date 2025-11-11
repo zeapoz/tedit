@@ -35,8 +35,14 @@ impl TerminalBackend {
         Ok(())
     }
 
+    /// Clears the current line.
+    pub fn clear_line(&self) -> Result<()> {
+        execute!(stdout(), terminal::Clear(ClearType::CurrentLine))?;
+        Ok(())
+    }
+
     /// Clears the terminal viewport.
-    pub fn clear(&self) -> Result<()> {
+    pub fn clear_all(&self) -> Result<()> {
         execute!(stdout(), terminal::Clear(ClearType::All))?;
         Ok(())
     }
@@ -54,8 +60,8 @@ impl TerminalBackend {
     }
 
     /// Updates the cursor position on screen.
-    pub fn move_cursor(&self, row: u16, col: u16) -> Result<()> {
-        execute!(stdout(), cursor::MoveTo(row, col))?;
+    pub fn move_cursor(&self, col: u16, row: u16) -> Result<()> {
+        execute!(stdout(), cursor::MoveTo(col, row))?;
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use crossterm::style::Stylize;
 
-use crate::editor::{Result, backend::TerminalBackend, buffer::Buffer, cursor::Cursor};
+use crate::editor::{Mode, Result, backend::TerminalBackend, buffer::Buffer, cursor::Cursor};
 
 #[derive(Debug)]
 pub struct StatusBar {
@@ -19,10 +19,12 @@ impl StatusBar {
     /// Renders the status bar.
     pub fn render(
         &self,
+        mode: Mode,
         buffer: &Buffer,
         cursor: &Cursor,
         backend: &TerminalBackend,
     ) -> Result<()> {
+        let mode_string = mode.to_string();
         let file_name = buffer.file_name().bold();
 
         let dirty_marker = if buffer.dirty {
@@ -34,7 +36,7 @@ impl StatusBar {
         let (cursor_col, cursor_row) = cursor.position();
         let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
 
-        let status = format!("{file_name}{dirty_marker} {cursor_position}");
+        let status = format!("{mode_string} {file_name}{dirty_marker} {cursor_position}");
 
         backend.write(&status)
     }

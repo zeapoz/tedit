@@ -1,4 +1,4 @@
-use std::{io, path::Path};
+use std::{fmt, io, path::Path};
 
 use crossterm::event::{self, Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
@@ -7,6 +7,7 @@ use crate::editor::{
     backend::TerminalBackend,
     buffer::Buffer,
     command::{CommandRegistry, register_commands},
+    command_palette::CommandPalette,
     cursor::Cursor,
     gutter::Gutter,
     keymap::Keymap,
@@ -17,6 +18,7 @@ use crate::editor::{
 pub mod backend;
 mod buffer;
 mod command;
+mod command_palette;
 mod cursor;
 mod gutter;
 mod keymap;
@@ -37,6 +39,25 @@ pub enum Error {
     BufferError(#[from] buffer::Error),
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum Mode {
+    /// A mode for editing text.
+    #[default]
+    Insert,
+    /// A mode for running commands.
+    Command,
+}
+
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Mode::Insert => "INS",
+            Mode::Command => "CMD",
+        };
+        write!(f, "{s}")
+    }
+}
+
 #[derive(Debug)]
 pub struct Editor {
     /// The currently open buffer.
@@ -53,8 +74,12 @@ pub struct Editor {
     backend: TerminalBackend,
     /// The command registry.
     command_registry: CommandRegistry,
+    /// The command palette.
+    command_palette: CommandPalette,
     /// The mapping from key to command.
     keymap: Keymap,
+    /// The current mode.
+    pub mode: Mode,
     /// Whether the editor should quit.
     pub should_quit: bool,
 }
@@ -83,6 +108,8 @@ impl Editor {
         let mut command_registry = CommandRegistry::new();
         register_commands(&mut command_registry);
 
+        let command_palette = CommandPalette::new(&command_registry);
+
         Ok(Self {
             buffer,
             cursor: Cursor::default(),
@@ -91,7 +118,9 @@ impl Editor {
             status_bar,
             backend,
             command_registry,
+            command_palette,
             keymap: Keymap::default(),
+            mode: Mode::default(),
             should_quit: false,
         })
     }
@@ -109,34 +138,74 @@ impl Editor {
             self.viewport.scroll_to_cursor(&self.cursor);
             self.render()?;
 
-            match event::read()? {
-                Event::Key(event) => {
-                    if let Some(command_name) = self.keymap.get(&event) {
-                        if let Some(command) = self.command_registry.get(command_name) {
-                            command.execute(self);
-                        }
-                    } else if let KeyCode::Char(c) = event.code
-                        && self.buffer.insert_char(c, &self.cursor)
-                    {
-                        self.cursor.move_right(&self.buffer);
+            let event = event::read()?;
+            match self.mode {
+                Mode::Insert => self.handle_insert_mode_input(event),
+                Mode::Command => self.handle_command_mode_input(event),
+            };
+
+            if self.should_quit {
+                break;
+            }
+        }
+        self.exit()
+    }
+
+    /// Handles event input in insert mode.
+    pub fn handle_insert_mode_input(&mut self, event: Event) {
+        match event {
+            Event::Key(event) => {
+                if let Some(command_name) = self.keymap.get(&event) {
+                    if let Some(command) = self.command_registry.get(command_name) {
+                        command.execute(self);
                     }
+                } else if let KeyCode::Char(c) = event.code
+                    && self.buffer.insert_char(c, &self.cursor)
+                {
+                    self.cursor.move_right(&self.buffer);
                 }
-                Event::Mouse(MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column,
-                    row,
-                    ..
-                }) => {
-                    let (logical_col, logical_row) =
-                        self.viewport
-                            .screen_position(column as usize, row as usize, &self.gutter);
-                    self.cursor.move_to(logical_col, logical_row, &self.buffer);
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                ..
+            }) => {
+                let (logical_col, logical_row) =
+                    self.viewport
+                        .screen_position(column as usize, row as usize, &self.gutter);
+                self.cursor.move_to(logical_col, logical_row, &self.buffer);
+            }
+            _ => {}
+        }
+    }
+
+    /// Handles event input in command mode.
+    pub fn handle_command_mode_input(&mut self, event: Event) {
+        if let Event::Key(event) = event {
+            // TODO: Implement command mode keybindings as commands with context (mode).
+            match event.code {
+                KeyCode::Esc => self.enter_command_mode(),
+                KeyCode::Enter => {
+                    let command = self.command_palette.selected_command_info();
+                    if let Some(command) = self.command_registry.get(command.name) {
+                        command.execute(self);
+                    }
+                    self.enter_command_mode();
                 }
+                KeyCode::Char(c) => self.command_palette.insert_char(c),
+                KeyCode::Down | KeyCode::BackTab => self.command_palette.select_previous_command(),
+                KeyCode::Up | KeyCode::Tab => self.command_palette.select_next_command(),
+                KeyCode::Backspace => self.command_palette.delete_char(),
                 _ => {}
             }
         }
+    }
 
-        self.exit()
+    /// Exits command mode and cleans up the stored query.
+    pub fn enter_command_mode(&mut self) {
+        self.command_palette.clear_query();
+        self.mode = Mode::Insert;
     }
 
     /// Exits the editor.
@@ -148,7 +217,7 @@ impl Editor {
     pub fn render(&self) -> Result<()> {
         self.backend.hide_cursor()?;
         self.backend.move_cursor(0, 0)?;
-        self.backend.clear()?;
+        self.backend.clear_all()?;
 
         for screen_row in 0..self.viewport.height() {
             let logical_row = self.viewport.row_offset + screen_row;
@@ -162,7 +231,12 @@ impl Editor {
         }
 
         self.status_bar
-            .render(&self.buffer, &self.cursor, &self.backend)?;
+            .render(self.mode, &self.buffer, &self.cursor, &self.backend)?;
+
+        // Render the command palette in command mode.
+        if self.mode == Mode::Command {
+            self.command_palette.render(&self.backend)?;
+        }
 
         self.cursor
             .render(&self.viewport, &self.gutter, &self.backend)?;

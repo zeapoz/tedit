@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
-use crate::editor::Editor;
+use crate::editor::{self, Editor};
 
 /// The `Command` trait defines a command that can be executed by the editor.
 pub trait Command: Debug {
@@ -34,6 +34,11 @@ impl CommandRegistry {
     /// Gets a command by name.
     pub fn get(&self, name: &str) -> Option<Rc<dyn Command>> {
         self.commands.get(name).cloned()
+    }
+
+    /// Returns an iterator over all commands.
+    pub fn get_all_commands(&self) -> impl Iterator<Item = &Rc<dyn Command>> {
+        self.commands.values()
     }
 }
 
@@ -85,6 +90,20 @@ define_commands! {
             if editor.buffer.save(None::<&str>).is_err() {
                 // TODO: Show error message.
             }
+        }
+    },
+    EnterInsertMode {
+        name: "enter_insert_mode",
+        description: "Enter insert mode",
+        handler: |editor: &mut Editor| {
+            editor.mode = editor::Mode::Insert;
+        }
+    },
+    EnterCommandMode {
+        name: "enter_command_mode",
+        description: "Enter command mode",
+        handler: |editor: &mut Editor| {
+            editor.mode = editor::Mode::Command;
         }
     },
     // Cursor movements.
@@ -146,8 +165,8 @@ define_commands! {
             editor.buffer.delete_char(&editor.cursor);
         }
     },
-    Backspace {
-        name: "backspace",
+    DeleteCharBefore {
+        name: "delete_char_before",
         description: "Delete the character before the cursor",
         handler: |editor: &mut Editor| {
             if editor.cursor.col() == 0 && editor.cursor.row() > 0 {

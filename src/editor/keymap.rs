@@ -22,6 +22,7 @@ impl Default for Keymap {
         // Editor actions.
         map.insert(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL), "quit");
         map.insert(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL), "save");
+        map.insert(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL), "enter_command_mode");
         // Cursor movements.
         map.insert(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE), "move_cursor_left");
         map.insert(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE), "move_cursor_right");
@@ -32,7 +33,7 @@ impl Default for Keymap {
         // Text manipulation.
         map.insert(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), "insert_newline");
         map.insert(KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE), "delete_char");
-        map.insert(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE), "backspace");
+        map.insert(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE), "delete_char_before");
         Self { map }
     }
 }
