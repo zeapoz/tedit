@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::editor::{
     backend::TerminalBackend,
     buffer::Buffer,
-    command::{CommandRegistry, register_commands},
+    command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
     cursor::Cursor,
     gutter::Gutter,
@@ -127,6 +127,7 @@ impl Editor {
 
     /// Opens a file and loads its contents into the editor.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        // TODO: Keep track of all open buffers.
         self.buffer = Buffer::read_file(path)?;
         self.cursor.move_to(0, 0, &self.buffer);
         Ok(())
@@ -157,7 +158,8 @@ impl Editor {
             Event::Key(event) => {
                 if let Some(command_name) = self.keymap.get(&event) {
                     if let Some(command) = self.command_registry.get(command_name) {
-                        command.execute(self);
+                        // TODO: Store command arguments in keybindings.
+                        command.execute(self, &CommandArgs::default());
                     }
                 } else if let KeyCode::Char(c) = event.code
                     && self.buffer.insert_char(c, &self.cursor)
@@ -185,17 +187,18 @@ impl Editor {
         if let Event::Key(event) = event {
             // TODO: Implement command mode keybindings as commands with context (mode).
             match event.code {
-                KeyCode::Esc => self.enter_command_mode(),
+                KeyCode::Esc => self.exit_command_mode(),
                 KeyCode::Enter => {
-                    let command = self.command_palette.selected_command_info();
+                    let (command, args) = self.command_palette.parse_query();
                     if let Some(command) = self.command_registry.get(command.name) {
-                        command.execute(self);
+                        command.execute(self, &args);
                     }
-                    self.enter_command_mode();
+                    self.exit_command_mode();
                 }
+                KeyCode::Tab => self.command_palette.autocomplete_or_next(),
                 KeyCode::Char(c) => self.command_palette.insert_char(c),
                 KeyCode::Down | KeyCode::BackTab => self.command_palette.select_previous_command(),
-                KeyCode::Up | KeyCode::Tab => self.command_palette.select_next_command(),
+                KeyCode::Up => self.command_palette.select_next_command(),
                 KeyCode::Backspace => self.command_palette.delete_char(),
                 _ => {}
             }
@@ -203,7 +206,7 @@ impl Editor {
     }
 
     /// Exits command mode and cleans up the stored query.
-    pub fn enter_command_mode(&mut self) {
+    pub fn exit_command_mode(&mut self) {
         self.command_palette.clear_query();
         self.mode = Mode::Insert;
     }
