@@ -180,6 +180,7 @@ impl CommandPalette {
         backend.move_cursor(0, rows - RENDER_ROW)?;
         backend.clear_line()?;
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
-        backend.write(&text)
+        backend.write(&text)?;
+        Ok(())
     }
 }

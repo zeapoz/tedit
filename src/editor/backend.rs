@@ -1,11 +1,13 @@
-use std::io::{Write, stdout};
+use std::io::{self, Write, stdout};
 
 use crossterm::{
     cursor, event, execute,
     terminal::{self, ClearType},
 };
 
-use crate::editor::Result;
+pub type Error = io::Error;
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct TerminalBackend;

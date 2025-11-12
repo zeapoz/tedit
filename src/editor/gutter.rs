@@ -21,6 +21,7 @@ impl Gutter {
         let padding_width = self.width.saturating_sub(2);
 
         let s = format!("{:>width$}  ", row.saturating_add(1), width = padding_width);
-        backend.write(&s)
+        backend.write(&s)?;
+        Ok(())
     }
 }

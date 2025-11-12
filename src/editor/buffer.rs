@@ -1,23 +1,36 @@
 use std::{
-    fs, mem,
+    fs, io, mem,
     path::{Path, PathBuf},
 };
 
 use thiserror::Error;
 
 use crate::editor::{
-    Result, backend::TerminalBackend, buffer::row::Row, cursor::Cursor, viewport::Viewport,
+    backend::{self, TerminalBackend},
+    buffer::row::Row,
+    cursor::Cursor,
+    viewport::Viewport,
 };
 
 mod row;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("missing path")]
-    MissingPath,
+    #[error("failed to open buffer: {0}")]
+    OpenError(#[from] io::Error),
+    #[error("failed to save buffer: {0}")]
+    SaveError(#[from] SaveError),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Error)]
+pub enum SaveError {
+    #[error("no path specified")]
+    MissingPath,
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+}
+
+#[derive(Debug)]
 pub struct Buffer {
     /// The rows of the buffer.
     rows: Vec<Row>,
@@ -28,9 +41,27 @@ pub struct Buffer {
 }
 
 impl Buffer {
+    /// Opens an existing file, or if it doesn't exist, opens a new buffer set to the given path.
+    pub fn open_new_or_existing_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        if let Ok(true) = fs::exists(&path) {
+            Self::open_file(&path)
+        } else {
+            Ok(Self::open_new(&path))
+        }
+    }
+
+    /// Opens a new buffer set to the given path.
+    pub fn open_new<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            rows: vec![Row::default()],
+            filepath: Some(path.as_ref().to_path_buf()),
+            dirty: false,
+        }
+    }
+
     /// Open a new file and read its contents.
-    pub fn read_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let contents = std::fs::read_to_string(&path)?;
+    pub fn open_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let contents = fs::read_to_string(&path)?;
 
         Ok(Self {
             rows: contents.split("\n").map(Row::new).collect(),
@@ -113,7 +144,7 @@ impl Buffer {
         row: usize,
         viewport: &Viewport,
         backend: &TerminalBackend,
-    ) -> Result<()> {
+    ) -> Result<(), backend::Error> {
         let visible_chars: String = self
             .row(row)
             .map(|r| r.visible_chars(viewport))
@@ -125,9 +156,9 @@ impl Buffer {
     }
 
     /// Saves the buffer to the given path. Or the current path if none is given.
-    pub fn save<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
+    pub fn save<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<(), Error> {
         let path = match (path.as_ref(), self.filepath.as_ref()) {
-            (None, None) => return Err(Error::MissingPath.into()),
+            (None, None) => return Err(SaveError::MissingPath.into()),
             (None, Some(p)) => p,
             (Some(p), None) | (Some(p), Some(_)) => {
                 // Update the filepath to the new path.
@@ -138,19 +169,29 @@ impl Buffer {
             }
         };
 
-        fs::write(path, self.text())?;
+        fs::write(path, self.text()).map_err(SaveError::IoError)?;
         self.dirty = false;
         Ok(())
     }
 
-    /// Returns the path of the file this buffer represents, or `[Empty File]` if none.
+    /// Returns the path of the file this buffer represents, or `[No Filename]` if none.
     pub fn file_name(&self) -> String {
         /// The file name to use for an empty buffer.
-        const EMPTY_FILE: &str = "[Empty File]";
+        const NO_FILENAME: &str = "[No Filename]";
 
         self.filepath
             .as_ref()
             .map(|f| f.to_string_lossy().to_string())
-            .unwrap_or(EMPTY_FILE.into())
+            .unwrap_or(NO_FILENAME.into())
+    }
+}
+
+impl Default for Buffer {
+    fn default() -> Self {
+        Self {
+            rows: vec![Row::default()],
+            filepath: Default::default(),
+            dirty: Default::default(),
+        }
     }
 }

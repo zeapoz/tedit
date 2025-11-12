@@ -1,6 +1,6 @@
 use crate::editor::viewport::Viewport;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Row {
     /// The text of the row.
     text: String,

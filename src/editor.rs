@@ -1,4 +1,4 @@
-use std::{fmt, io, path::Path};
+use std::{fmt, path::Path};
 
 use crossterm::event::{self, Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
@@ -11,7 +11,7 @@ use crate::editor::{
     cursor::Cursor,
     gutter::Gutter,
     keymap::Keymap,
-    status_bar::StatusBar,
+    status_bar::{Message, StatusBar},
     viewport::Viewport,
 };
 
@@ -33,10 +33,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("io error: {0}")]
-    IoError(#[from] io::Error),
-    #[error("buffer error: {0}")]
+    #[error(transparent)]
     BufferError(#[from] buffer::Error),
+    #[error(transparent)]
+    BackendError(#[from] backend::Error),
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -90,7 +90,7 @@ impl Editor {
         let backend = TerminalBackend::initialize()?;
 
         let buffer = if let Some(path) = file {
-            Buffer::read_file(path).unwrap_or_default()
+            Buffer::open_file(path).unwrap_or_default()
         } else {
             Buffer::default()
         };
@@ -128,7 +128,7 @@ impl Editor {
     /// Opens a file and loads its contents into the editor.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         // TODO: Keep track of all open buffers.
-        self.buffer = Buffer::read_file(path)?;
+        self.buffer = Buffer::open_new_or_existing_file(&path)?;
         self.cursor.move_to(0, 0, &self.buffer);
         Ok(())
     }
@@ -137,6 +137,7 @@ impl Editor {
     pub fn run(&mut self) -> Result<()> {
         while !self.should_quit {
             self.viewport.scroll_to_cursor(&self.cursor);
+            self.update();
             self.render()?;
 
             let event = event::read()?;
@@ -159,7 +160,9 @@ impl Editor {
                 if let Some(command_name) = self.keymap.get(&event) {
                     if let Some(command) = self.command_registry.get(command_name) {
                         // TODO: Store command arguments in keybindings.
-                        command.execute(self, &CommandArgs::default());
+                        if let Err(err) = command.execute(self, &CommandArgs::default()) {
+                            self.show_err_message(&err.to_string());
+                        }
                     }
                 } else if let KeyCode::Char(c) = event.code
                     && self.buffer.insert_char(c, &self.cursor)
@@ -190,8 +193,10 @@ impl Editor {
                 KeyCode::Esc => self.exit_command_mode(),
                 KeyCode::Enter => {
                     let (command, args) = self.command_palette.parse_query();
-                    if let Some(command) = self.command_registry.get(command.name) {
-                        command.execute(self, &args);
+                    if let Some(command) = self.command_registry.get(command.name)
+                        && let Err(err) = command.execute(self, &args)
+                    {
+                        self.show_err_message(&err.to_string());
                     }
                     self.exit_command_mode();
                 }
@@ -205,15 +210,33 @@ impl Editor {
         }
     }
 
+    /// Shows an error message in the status bar.
+    pub fn show_err_message(&mut self, s: &str) {
+        let message = Message::new(s);
+        self.status_bar.set_message(message);
+    }
+
     /// Exits command mode and cleans up the stored query.
     pub fn exit_command_mode(&mut self) {
         self.command_palette.clear_query();
         self.mode = Mode::Insert;
     }
 
+    /// Saves the active buffer.
+    pub fn save_active_buffer<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
+        self.buffer.save(path)?;
+        Ok(())
+    }
+
     /// Exits the editor.
     pub fn exit(&self) -> Result<()> {
-        self.backend.deinitialize()
+        self.backend.deinitialize()?;
+        Ok(())
+    }
+
+    /// Updates the state of the editor.
+    pub fn update(&mut self) {
+        self.status_bar.update()
     }
 
     /// Renders the editor to the terminal.
@@ -239,10 +262,10 @@ impl Editor {
         // Render the command palette in command mode.
         if self.mode == Mode::Command {
             self.command_palette.render(&self.backend)?;
+        } else {
+            self.cursor
+                .render(&self.viewport, &self.gutter, &self.backend)?;
         }
-
-        self.cursor
-            .render(&self.viewport, &self.gutter, &self.backend)?;
 
         self.backend.show_cursor()?;
         self.backend.flush()?;

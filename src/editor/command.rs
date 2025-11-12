@@ -1,6 +1,19 @@
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
+use thiserror::Error;
+
 use crate::editor::{self, Editor};
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Missing argument(s): {0}")]
+    MissingArguments(String),
+    #[error("Too many arguments, expected {expected}")]
+    TooManyArguments { expected: usize },
+    #[allow(clippy::enum_variant_names)]
+    #[error(transparent)]
+    ExecutionError(#[from] editor::Error),
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct CommandArgs {
@@ -41,7 +54,7 @@ pub trait Command: Debug {
     fn description(&self) -> &'static str;
 
     /// Executes the command.
-    fn execute(&self, editor: &mut Editor, args: &CommandArgs);
+    fn execute(&self, editor: &mut Editor, args: &CommandArgs) -> Result<(), Error>;
 }
 
 /// A registry for all available commands.
@@ -89,9 +102,9 @@ macro_rules! define_commands {
                     $description
                 }
 
-                fn execute(&self, editor: &mut $crate::editor::Editor, args: &$crate::editor::command::CommandArgs) {
-                    let f: fn(&mut $crate::editor::Editor, &$crate::editor::command::CommandArgs) = $handler;
-                    f(editor, args);
+                fn execute(&self, editor: &mut $crate::editor::Editor, args: &$crate::editor::command::CommandArgs) -> Result<(), $crate::editor::command::Error> {
+                    let f: fn(&mut $crate::editor::Editor, &$crate::editor::command::CommandArgs) -> Result<(), $crate::editor::command::Error> = $handler;
+                    f(editor, args)
                 }
             }
         )*
@@ -111,21 +124,20 @@ define_commands! {
         description: "Quit the editor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.should_quit = true;
+            Ok(())
         }
     },
     Save {
         name: "save",
-        description: "Save the file",
+        description: "Save the current buffer",
         handler: |editor: &mut Editor, args: &CommandArgs| {
             if args.num_positional() > 1 {
-                // TODO: Show error message.
-                return;
+                return Err(Error::TooManyArguments { expected: 1 });
             }
 
             let path = args.get_positional(0);
-            if editor.buffer.save(path).is_err() {
-                // TODO: Show error message.
-            }
+            editor.save_active_buffer(path)?;
+            Ok(())
         }
     },
     Open {
@@ -133,15 +145,15 @@ define_commands! {
         description: "Open a file",
         handler: |editor: &mut Editor, args: &CommandArgs| {
             if args.num_positional() == 0 {
-                // TODO: Show error message.
-                return;
+                return Err(Error::MissingArguments("[FILE]".into()));
             };
 
             for path in args.iter_positional() {
-                if editor.open_file(path).is_err() {
-                    // TODO: Show error message.
+                if let Err(err) = editor.open_file(path) {
+                    return Err(Error::ExecutionError(err));
                 }
             }
+            Ok(())
         }
     },
     EnterInsertMode {
@@ -149,6 +161,7 @@ define_commands! {
         description: "Enter insert mode",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.mode = editor::Mode::Insert;
+            Ok(())
         }
     },
     EnterCommandMode {
@@ -156,6 +169,7 @@ define_commands! {
         description: "Enter command mode",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.mode = editor::Mode::Command;
+            Ok(())
         }
     },
     // Cursor movements.
@@ -164,6 +178,7 @@ define_commands! {
         description: "Move the cursor left",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.cursor.move_left(&editor.buffer);
+            Ok(())
         }
     },
     MoveCursorRight {
@@ -171,6 +186,7 @@ define_commands! {
         description: "Move the cursor right",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.cursor.move_right(&editor.buffer);
+            Ok(())
         }
     },
     MoveCursorUp {
@@ -178,6 +194,7 @@ define_commands! {
         description: "Move the cursor up",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.cursor.move_up(&editor.buffer);
+            Ok(())
         }
     },
     MoveCursorDown {
@@ -185,6 +202,7 @@ define_commands! {
         description: "Move the cursor down",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.cursor.move_down(&editor.buffer);
+            Ok(())
         }
     },
     MoveCursorToStartOfRow {
@@ -192,6 +210,7 @@ define_commands! {
         description: "Move the cursor to the start of the row",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.cursor.move_to_start_of_row();
+            Ok(())
         }
     },
     MoveCursorToEndOfRow {
@@ -199,6 +218,7 @@ define_commands! {
         description: "Move the cursor to the end of the row",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.cursor.move_to_end_of_row(&editor.buffer);
+            Ok(())
         }
     },
     // Text manipulation.
@@ -208,6 +228,7 @@ define_commands! {
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.buffer.insert_newline(&editor.cursor);
             editor.cursor.move_to_start_of_next_row(&editor.buffer);
+            Ok(())
         }
     },
     DeleteChar {
@@ -215,6 +236,7 @@ define_commands! {
         description: "Delete the character under the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.buffer.delete_char(&editor.cursor);
+            Ok(())
         }
     },
     DeleteCharBefore {
@@ -233,11 +255,12 @@ define_commands! {
                 editor.cursor.move_to(prev_row_len, prev_row, &editor.buffer);
             } else {
                 if editor.cursor.col() == 0 && editor.cursor.row() == 0 {
-                    return;
+                    return Ok(());
                 }
                 editor.cursor.move_left(&editor.buffer);
                 editor.buffer.delete_char(&editor.cursor);
             }
+            Ok(())
         }
     },
 }
