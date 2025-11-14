@@ -26,6 +26,8 @@ pub enum Error {
 pub enum SaveError {
     #[error("no path specified")]
     MissingPath,
+    #[error("file already exists: {0}")]
+    FileAlreadyExists(PathBuf),
     #[error(transparent)]
     IoError(#[from] io::Error),
 }
@@ -155,21 +157,24 @@ impl Buffer {
         backend.write(&visible_chars)
     }
 
-    /// Saves the buffer to the given path. Or the current path if none is given.
-    pub fn save<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<(), Error> {
-        let path = match (path.as_ref(), self.filepath.as_ref()) {
-            (None, None) => return Err(SaveError::MissingPath.into()),
-            (None, Some(p)) => p,
-            (Some(p), None) | (Some(p), Some(_)) => {
-                // Update the filepath to the new path.
-                let path = p.as_ref().to_path_buf();
-                self.filepath = Some(path);
-
-                p.as_ref()
-            }
-        };
-
+    /// Saves the buffer to the path stored in the buffer.
+    pub fn save(&mut self) -> Result<(), Error> {
+        let path = self.filepath.as_ref().ok_or(SaveError::MissingPath)?;
         fs::write(path, self.text()).map_err(SaveError::IoError)?;
+        self.dirty = false;
+        Ok(())
+    }
+
+    /// Saves the buffer to the given path. If the file already exists at the given path and
+    /// `force` is `false`, the buffer will not be saved and the function will return
+    /// an error. If `force` is `true`, the file will instead be overwritten.
+    pub fn save_as<P: AsRef<Path>>(&mut self, path: P, force: bool) -> Result<(), Error> {
+        if fs::exists(&path)? && !force {
+            return Err(SaveError::FileAlreadyExists(path.as_ref().to_path_buf()).into());
+        }
+
+        fs::write(&path, self.text()).map_err(SaveError::IoError)?;
+        self.filepath = Some(path.as_ref().to_path_buf());
         self.dirty = false;
         Ok(())
     }

@@ -9,6 +9,7 @@ pub type Error = io::Error;
 
 type Result<T> = std::result::Result<T, Error>;
 
+// TODO: Convert into implementor of trait.
 #[derive(Debug)]
 pub struct TerminalBackend;
 

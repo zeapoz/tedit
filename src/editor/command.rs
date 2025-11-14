@@ -2,7 +2,10 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use thiserror::Error;
 
-use crate::editor::{self, Editor};
+use crate::editor::{
+    self, Editor,
+    prompt::{PromptResponse, confirm::ConfirmPrompt},
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -123,7 +126,24 @@ define_commands! {
         name: "quit",
         description: "Quit the editor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.should_quit = true;
+            if !editor.buffer.dirty {
+                editor.should_quit = true;
+            } else {
+                editor.prompt_manager.show_prompt(
+                    Box::new(ConfirmPrompt::new("Buffer contains unsaved changes? Do you want to save and quit?")),
+                    |editor, response| {
+                        match response {
+                            PromptResponse::Yes => {
+                                editor.save_active_buffer(None::<&str>)?;
+                                editor.should_quit = true;
+                            },
+                            PromptResponse::No => editor.should_quit = true,
+                            PromptResponse::Cancel => return Ok(()),
+                        };
+                        Ok(())
+                    }
+                );
+            }
             Ok(())
         }
     },

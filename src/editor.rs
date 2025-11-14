@@ -11,6 +11,7 @@ use crate::editor::{
     cursor::Cursor,
     gutter::Gutter,
     keymap::Keymap,
+    prompt::{PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
     status_bar::{Message, StatusBar},
     viewport::Viewport,
 };
@@ -22,6 +23,7 @@ mod command_palette;
 mod cursor;
 mod gutter;
 mod keymap;
+mod prompt;
 mod status_bar;
 mod viewport;
 
@@ -58,7 +60,6 @@ impl fmt::Display for Mode {
     }
 }
 
-#[derive(Debug)]
 pub struct Editor {
     /// The currently open buffer.
     buffer: Buffer,
@@ -78,6 +79,8 @@ pub struct Editor {
     command_palette: CommandPalette,
     /// The mapping from key to command.
     keymap: Keymap,
+    /// The prompt manager.
+    prompt_manager: PromptManager,
     /// The current mode.
     pub mode: Mode,
     /// Whether the editor should quit.
@@ -120,6 +123,7 @@ impl Editor {
             command_registry,
             command_palette,
             keymap: Keymap::default(),
+            prompt_manager: PromptManager::default(),
             mode: Mode::default(),
             should_quit: false,
         })
@@ -141,12 +145,20 @@ impl Editor {
             self.render()?;
 
             let event = event::read()?;
+
+            // Handle prompt input first.
+            if self.prompt_manager.active_prompt.is_some() {
+                self.handle_prompt_input(event);
+                continue;
+            }
+
             match self.mode {
                 Mode::Insert => self.handle_insert_mode_input(event),
                 Mode::Command => self.handle_command_mode_input(event),
             };
 
-            if self.should_quit {
+            // Only quit if there is no active prompt.
+            if self.should_quit && self.prompt_manager.active_prompt.is_none() {
                 break;
             }
         }
@@ -210,10 +222,31 @@ impl Editor {
         }
     }
 
-    /// Shows an error message in the status bar.
-    pub fn show_err_message(&mut self, s: &str) {
+    fn handle_prompt_input(&mut self, event: Event) {
+        if let Event::Key(key) = event
+            && let Some(active) = self.prompt_manager.active_prompt.as_mut()
+        {
+            match active.prompt.handle_input(&key) {
+                PromptStatus::Pending => {}
+                PromptStatus::Done(action) => {
+                    let active = self.prompt_manager.active_prompt.take().unwrap();
+                    if let Err(err) = (active.callback)(self, action) {
+                        self.show_err_message(&err.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    /// Shows a message in the status bar.
+    pub fn show_message(&mut self, s: &str) {
         let message = Message::new(s);
         self.status_bar.set_message(message);
+    }
+
+    /// Shows an error message in the status bar.
+    pub fn show_err_message(&mut self, s: &str) {
+        self.show_message(&format!("Error: {s}"))
     }
 
     /// Exits command mode and cleans up the stored query.
@@ -224,7 +257,30 @@ impl Editor {
 
     /// Saves the active buffer.
     pub fn save_active_buffer<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
-        self.buffer.save(path)?;
+        let path = path.map(|p| p.as_ref().to_path_buf());
+
+        // It a path was given, attempt to save the buffer to that path, prompting to overwrite if
+        // the file already exists. Otherwise, save the buffer to the current path.
+        if let Some(path) = path {
+            if let Err(buffer::Error::SaveError(buffer::SaveError::FileAlreadyExists(_))) =
+                self.buffer.save_as(&path, false)
+            {
+                self.prompt_manager.show_prompt(
+                    Box::new(ConfirmPrompt::new(
+                        "File already exists, do you want to overwrite it?",
+                    )),
+                    move |editor, response| {
+                        if response == PromptResponse::Yes {
+                            editor.buffer.save_as(&path, true)?;
+                        }
+                        Ok(())
+                    },
+                )
+            }
+        } else {
+            self.buffer.save()?;
+        }
+
         Ok(())
     }
 
@@ -259,8 +315,10 @@ impl Editor {
         self.status_bar
             .render(self.mode, &self.buffer, &self.cursor, &self.backend)?;
 
-        // Render the command palette in command mode.
-        if self.mode == Mode::Command {
+        // TODO: Implement a compositor.
+        if let Some(active) = &self.prompt_manager.active_prompt {
+            active.prompt.render(&self.backend)?;
+        } else if self.mode == Mode::Command {
             self.command_palette.render(&self.backend)?;
         } else {
             self.cursor
