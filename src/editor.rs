@@ -205,10 +205,13 @@ impl Editor {
                 KeyCode::Esc => self.exit_command_mode(),
                 KeyCode::Enter => {
                     let (command, args) = self.command_palette.parse_query();
-                    if let Some(command) = self.command_registry.get(command.name)
-                        && let Err(err) = command.execute(self, &args)
-                    {
-                        self.show_err_message(&err.to_string());
+                    match self.command_registry.get(&command) {
+                        None => self.show_err_message(&format!("No such command: {command}")),
+                        Some(command) => {
+                            if let Err(err) = command.execute(self, &args) {
+                                self.show_err_message(&err.to_string());
+                            }
+                        }
                     }
                     self.exit_command_mode();
                 }

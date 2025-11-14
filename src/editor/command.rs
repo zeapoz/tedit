@@ -130,7 +130,7 @@ define_commands! {
                 editor.should_quit = true;
             } else {
                 editor.prompt_manager.show_prompt(
-                    Box::new(ConfirmPrompt::new("Buffer contains unsaved changes? Do you want to save and quit?")),
+                    Box::new(ConfirmPrompt::new("Buffer contains unsaved changes, do you want to save before quitting?")),
                     |editor, response| {
                         match response {
                             PromptResponse::Yes => {

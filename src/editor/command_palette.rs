@@ -59,8 +59,12 @@ impl CommandPalette {
     }
 
     /// Returns the name of the currently selected command.
-    pub fn selected_command_info(&self) -> &CommandInfo {
-        &self.filtered_commands[self.selected_index]
+    pub fn get_selected_command(&self) -> Option<&CommandInfo> {
+        self.filtered_commands.get(self.selected_index)
+    }
+
+    pub fn get_filtered_command(&self, index: usize) -> Option<&CommandInfo> {
+        self.filtered_commands.get(index)
     }
 
     /// Returns the name of the command extracted from the current query.
@@ -68,9 +72,12 @@ impl CommandPalette {
         self.query.split_whitespace().next().unwrap_or_default()
     }
 
-    /// Parses the current query into a command and its arguments and returns it.
-    pub fn parse_query(&self) -> (&CommandInfo, CommandArgs) {
-        let command = self.selected_command_info();
+    /// Parses the current query into a command name and its arguments and returns it.
+    pub fn parse_query(&self) -> (String, CommandArgs) {
+        let command = self
+            .get_selected_command()
+            .map(|c| c.name.to_string())
+            .unwrap_or(self.query.clone());
 
         let args = self.query.split_whitespace().skip(1).collect::<Vec<_>>();
         let command_args = CommandArgs::new(args);
@@ -89,7 +96,8 @@ impl CommandPalette {
             .collect();
 
         // Make sure the selected index is still valid.
-        self.selected_index = self.selected_index.min(self.filtered_commands.len() - 1);
+        let last_command_index = self.filtered_commands.len().saturating_sub(1);
+        self.selected_index = self.selected_index.min(last_command_index);
     }
 
     /// Inserts a character into the current query.
@@ -111,13 +119,17 @@ impl CommandPalette {
 
     /// Autocompletes the current query to the currently selected command.
     pub fn autocomplete(&mut self) {
-        self.query = self.selected_command_info().name.to_string();
+        if let Some(command) = self.get_selected_command() {
+            self.query = command.name.to_string();
+        }
     }
 
     /// Autocompletes the current query to the currently selected command, or selects the next
     /// index if the query is already autocompleted.
     pub fn autocomplete_or_next(&mut self) {
-        let selected_command = self.selected_command_info().name;
+        let Some(selected_command) = self.get_selected_command().map(|c| c.name) else {
+            return;
+        };
         if self.query == selected_command {
             self.select_next_command();
         } else {
@@ -127,22 +139,26 @@ impl CommandPalette {
 
     /// Selects the next command in the command palette, wrapping around at the end.
     pub fn select_next_command(&mut self) {
-        self.selected_index = (self.selected_index + 1) % self.filtered_commands.len();
-
-        let selected_command = self.selected_command_info().name;
-        self.set_query(selected_command);
+        let next_index = (self.selected_index + 1) % self.filtered_commands.len();
+        if let Some(selected_command) = self.get_filtered_command(next_index).map(|c| c.name) {
+            self.set_query(selected_command);
+            self.selected_index = next_index;
+        }
     }
 
     /// Selects the previous command in the command palette, wraoping around at the start. Returns
     /// the name of the selected command.
     pub fn select_previous_command(&mut self) {
-        if self.selected_index == 0 {
-            self.selected_index = self.filtered_commands.len() - 1;
+        let prev_index = if self.selected_index == 0 {
+            self.filtered_commands.len().saturating_sub(1)
         } else {
-            self.selected_index = self.selected_index.saturating_sub(1);
+            self.selected_index.saturating_sub(1)
+        };
+
+        if let Some(selected_command) = self.get_filtered_command(prev_index).map(|c| c.name) {
+            self.set_query(selected_command);
+            self.selected_index = prev_index;
         }
-        let selected_command = self.selected_command_info().name;
-        self.set_query(selected_command);
     }
 
     /// Clears the current query, then resets the selected index and the filtered commands.
