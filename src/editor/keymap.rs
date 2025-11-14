@@ -23,6 +23,7 @@ impl Default for Keymap {
         map.insert(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL), "quit");
         map.insert(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL), "save");
         map.insert(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL), "enter_command_mode");
+        map.insert(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL), "open_search");
         // Cursor movements.
         map.insert(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE), "move_cursor_left");
         map.insert(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE), "move_cursor_right");

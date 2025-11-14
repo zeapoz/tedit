@@ -1,6 +1,6 @@
 use crate::editor::viewport::Viewport;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Row {
     /// The text of the row.
     text: String,
@@ -58,6 +58,13 @@ impl Row {
     pub fn append_row(&mut self, row: &Self) {
         self.text.push_str(&row.text);
         self.len += row.len;
+    }
+
+    /// Finds the next occurrence of the given string in the row and returns the column or `None`
+    /// if not found..
+    pub fn find_next(&self, s: &str, offset: usize) -> Option<usize> {
+        let offset_text = self.text.get(offset..).unwrap_or_default();
+        offset_text.find(s).map(|x| x + offset)
     }
 
     /// Returns a `Vec` of characters that should be visible on screen given a [`Viewport`].

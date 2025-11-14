@@ -20,7 +20,7 @@ impl ConfirmPrompt {
 }
 
 impl Prompt for ConfirmPrompt {
-    fn handle_input(&self, event: &KeyEvent) -> PromptStatus {
+    fn process_key(&mut self, event: &KeyEvent) -> PromptStatus {
         match event.code {
             KeyCode::Enter => PromptStatus::Done(PromptResponse::Yes),
             KeyCode::Char('y') => PromptStatus::Done(PromptResponse::Yes),

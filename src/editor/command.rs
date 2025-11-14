@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::editor::{
     self, Editor,
-    prompt::{PromptResponse, confirm::ConfirmPrompt},
+    prompt::{PromptResponse, confirm::ConfirmPrompt, search::SearchPrompt},
 };
 
 #[derive(Debug, Error)]
@@ -138,7 +138,7 @@ define_commands! {
                                 editor.should_quit = true;
                             },
                             PromptResponse::No => editor.should_quit = true,
-                            PromptResponse::Cancel => return Ok(()),
+                            _ => return Ok(()),
                         };
                         Ok(())
                     }
@@ -173,6 +173,25 @@ define_commands! {
                     return Err(Error::ExecutionError(err));
                 }
             }
+            Ok(())
+        }
+    },
+    OpenSearch {
+        name: "open_search",
+        description: "Open a search prompt",
+        handler: |editor: &mut Editor, _args: &CommandArgs| {
+            editor.prompt_manager.show_prompt(
+                Box::new(SearchPrompt::new(editor.buffer.clone(), editor.cursor)),
+                |editor, response| {
+                    // TODO: Use text to populate a new search state struct in editor for jumping
+                    // between all search results.
+                    if let PromptResponse::Text(text) = response {
+                        let message = format!("Searched for: {text}");
+                        editor.show_message(&message);
+                    }
+                    Ok(())
+                }
+            );
             Ok(())
         }
     },

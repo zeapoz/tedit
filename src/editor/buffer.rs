@@ -32,7 +32,7 @@ pub enum SaveError {
     IoError(#[from] io::Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Buffer {
     /// The rows of the buffer.
     rows: Vec<Row>,
@@ -124,6 +124,24 @@ impl Buffer {
             row.append_row(&right_row);
             self.dirty = true;
         }
+    }
+
+    /// Finds the next occurrence of the given string in the buffer and returns its position or
+    /// `None` if not found.
+    pub fn find_next(&mut self, s: &str, cursor: &Cursor) -> Option<(usize, usize)> {
+        self.rows
+            .iter()
+            .enumerate()
+            .skip(cursor.row())
+            .find_map(|(i, row)| {
+                // Ensure that the first row is searched from the cursor column.
+                let offset = if i == cursor.row() {
+                    cursor.col().saturating_add(1)
+                } else {
+                    0
+                };
+                row.find_next(s, offset).map(|col| (col, i))
+            })
     }
 
     /// Returns the row at the given index or `None` if the index is out of bounds.

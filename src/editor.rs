@@ -11,7 +11,7 @@ use crate::editor::{
     cursor::Cursor,
     gutter::Gutter,
     keymap::Keymap,
-    prompt::{PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
+    prompt::{PromptAction, PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
     status_bar::{Message, StatusBar},
     viewport::Viewport,
 };
@@ -61,6 +61,7 @@ impl fmt::Display for Mode {
 }
 
 pub struct Editor {
+    // TODO: Store buffer in `Arc`.
     /// The currently open buffer.
     buffer: Buffer,
     /// The cursor position.
@@ -229,11 +230,18 @@ impl Editor {
         if let Event::Key(key) = event
             && let Some(active) = self.prompt_manager.active_prompt.as_mut()
         {
-            match active.prompt.handle_input(&key) {
+            let status = active.prompt.process_key(&key);
+            match status {
                 PromptStatus::Pending => {}
-                PromptStatus::Done(action) => {
+                PromptStatus::Changed => {
+                    let action = active.prompt.on_changed();
+                    if let PromptAction::MoveCursor { col, row } = action {
+                        self.cursor.move_to(col, row, &self.buffer);
+                    }
+                }
+                PromptStatus::Done(response) => {
                     let active = self.prompt_manager.active_prompt.take().unwrap();
-                    if let Err(err) = (active.callback)(self, action) {
+                    if let Err(err) = (active.callback)(self, response) {
                         self.show_err_message(&err.to_string());
                     }
                 }

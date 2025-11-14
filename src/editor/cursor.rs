@@ -2,7 +2,7 @@ use crate::editor::{
     Result, backend::TerminalBackend, buffer::Buffer, gutter::Gutter, viewport::Viewport,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Cursor {
     /// The column of the cursor.
     col: usize,
