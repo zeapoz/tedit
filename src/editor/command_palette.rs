@@ -1,9 +1,9 @@
 use crossterm::style::Stylize;
 
 use crate::editor::{
-    Result,
-    backend::TerminalBackend,
+    backend,
     command::{Command, CommandArgs, CommandRegistry},
+    renderer::{Rect, Renderable, RenderingContext},
 };
 
 /// Information about a command.
@@ -167,20 +167,23 @@ impl CommandPalette {
         self.update_filtered_commands();
         self.selected_index = 0;
     }
+}
 
-    /// Renders the command palette to the terminal.
-    pub fn render(&self, backend: &TerminalBackend) -> Result<()> {
-        /// The row to render the command palette to. Counted from the bottom of the terminal.
-        const RENDER_ROW: u16 = 2;
+impl Renderable for CommandPalette {
+    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+        // Render the query prompt.
+        ctx.backend.move_cursor(0, rect.last_row())?;
+        ctx.backend.clear_line()?;
 
-        let (_, rows) = backend.size()?;
+        let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
+        ctx.backend.write(&text)?;
 
-        // Render the suggestion list.
-        for i in (0..self.filtered_commands.len()).rev() {
+        // Render the command list above the query prompt.
+        for i in 0..self.filtered_commands.len() {
             let command = self.filtered_commands.get(i);
             if let Some(command) = command {
-                backend.move_cursor(0, rows - RENDER_ROW - i as u16 - 1)?;
-                backend.clear_line()?;
+                ctx.backend.move_cursor(0, rect.last_row() - i - 1)?;
+                ctx.backend.clear_line()?;
 
                 // TODO: Show description somwhere, maybe in the status bar.
                 let text = if i == self.selected_index {
@@ -188,15 +191,9 @@ impl CommandPalette {
                 } else {
                     command.name.to_string()
                 };
-                backend.write(&text)?;
+                ctx.backend.write(&text)?;
             }
         }
-
-        // Render the query prompt.
-        backend.move_cursor(0, rows - RENDER_ROW)?;
-        backend.clear_line()?;
-        let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
-        backend.write(&text)?;
         Ok(())
     }
 }

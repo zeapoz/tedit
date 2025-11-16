@@ -1,13 +1,14 @@
 use std::path::Path;
 
 use crate::editor::{
-    backend::TerminalBackend,
+    backend,
     document::{
-        buffer::{Buffer, Error, row::Row},
+        buffer::{Buffer, Error},
         cursor::Cursor,
         viewport::Viewport,
     },
     gutter::Gutter,
+    renderer::{Rect, Renderable, RenderingContext},
 };
 
 pub mod buffer;
@@ -136,11 +137,6 @@ impl Document {
         self.move_cursor_to(logical_col, logical_row);
     }
 
-    /// Returns the given row of the document.
-    pub fn row(&self, row: usize) -> Option<&Row> {
-        self.buffer.row(row)
-    }
-
     /// Returns the name of the file associated with the document.
     pub fn file_name(&self) -> String {
         self.buffer.file_name()
@@ -156,29 +152,22 @@ impl Document {
         self.viewport.row_offset
     }
 
-    // Returns the current height of the viewport.
-    pub fn viewport_height(&self) -> usize {
-        self.viewport.height()
-    }
-
     /// Returns the current cursor position.
     pub fn cursor_position(&self) -> (usize, usize) {
         self.cursor.position()
     }
+}
 
-    /// Renders the document to the terminal.
-    pub fn render_row(
-        &self,
-        row: usize,
-        backend: &TerminalBackend,
-    ) -> crate::editor::Result<()> {
-        self.buffer.render_row(row, &self.viewport, backend)?;
-        Ok(())
-    }
+impl Renderable for Document {
+    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+        let start_row = self.viewport.row_offset;
+        for row in rect.rows() {
+            ctx.backend.move_cursor(rect.col, row)?;
 
-    /// Renders the cursor to the terminal.
-      pub fn render_cursor(&self, gutter: &Gutter, backend: &TerminalBackend) -> crate::editor::Result<()> {
-        self.cursor.render(&self.viewport, gutter, backend)?;
+            let buffer_row = start_row + row;
+            self.buffer
+                .render_row(buffer_row, &self.viewport, ctx.backend)?;
+        }
         Ok(())
     }
 }

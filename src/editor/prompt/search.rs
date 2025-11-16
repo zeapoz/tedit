@@ -1,10 +1,10 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
-    Result,
-    backend::TerminalBackend,
+    backend,
     document::Document,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
+    renderer::{Rect, Renderable, RenderingContext},
 };
 
 #[derive(Debug)]
@@ -48,18 +48,15 @@ impl Prompt for SearchPrompt {
             PromptAction::None
         }
     }
+}
 
-    fn render(&self, backend: &TerminalBackend) -> Result<()> {
-        /// The row to render the prompt to. Counted from the bottom of the terminal.
-        const RENDER_ROW: u16 = 2;
-
-        let (_, rows) = backend.size()?;
-
-        backend.move_cursor(0, rows - RENDER_ROW)?;
-        backend.clear_line()?;
+impl Renderable for SearchPrompt {
+    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+        ctx.backend.move_cursor(rect.col, rect.row)?;
+        ctx.backend.clear_line()?;
 
         let message = format!("search: {}", self.query);
-        backend.write(&message)?;
+        ctx.backend.write(&message)?;
         Ok(())
     }
 }

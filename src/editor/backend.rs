@@ -7,12 +7,13 @@ use crossterm::{
 
 pub type Error = io::Error;
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 // TODO: Convert into implementor of trait.
 #[derive(Debug)]
 pub struct TerminalBackend;
 
+// TODO: Queue terminal operatitons instead of executing.
 impl TerminalBackend {
     /// Initializes the terminal backend.
     pub fn initialize() -> Result<Self> {
@@ -63,7 +64,9 @@ impl TerminalBackend {
     }
 
     /// Updates the cursor position on screen.
-    pub fn move_cursor(&self, col: u16, row: u16) -> Result<()> {
+    pub fn move_cursor(&self, col: usize, row: usize) -> Result<()> {
+        let col = col.min(u16::MAX as usize) as u16;
+        let row = row.min(u16::MAX as usize) as u16;
         execute!(stdout(), cursor::MoveTo(col, row))?;
         Ok(())
     }
@@ -81,8 +84,8 @@ impl TerminalBackend {
     }
 
     /// Returns the size of the terminal viewport.
-    pub fn size(&self) -> Result<(u16, u16)> {
-        let size = crossterm::terminal::size()?;
-        Ok(size)
+    pub fn size(&self) -> Result<(usize, usize)> {
+        let (cols, rows) = crossterm::terminal::size()?;
+        Ok((cols as usize, rows as usize))
     }
 }

@@ -1,6 +1,4 @@
-use crate::editor::{
-    Result, backend::TerminalBackend, buffer::Buffer, document::viewport::Viewport, gutter::Gutter,
-};
+use crate::editor::buffer::Buffer;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Cursor {
@@ -102,26 +100,5 @@ impl Cursor {
             self.col = 0;
             self.last_col = 0;
         }
-    }
-
-    /// Returns the screen position of the cursor relative to the viewport and the gutter.
-    pub fn screen_position(&self, viewport: &Viewport, gutter: &Gutter) -> (usize, usize) {
-        (
-            self.col - viewport.col_offset + gutter.width(),
-            self.row - viewport.row_offset,
-        )
-    }
-
-    /// Renders the cursor.
-    pub fn render(
-        &self,
-        viewport: &Viewport,
-        gutter: &Gutter,
-        backend: &TerminalBackend,
-    ) -> Result<()> {
-        let (cursor_column, cursor_row) = self.screen_position(viewport, gutter);
-        backend.move_cursor(cursor_column as u16, cursor_row as u16)?;
-
-        Ok(())
     }
 }

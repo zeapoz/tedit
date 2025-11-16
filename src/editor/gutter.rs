@@ -1,4 +1,7 @@
-use crate::editor::{Result, backend::TerminalBackend};
+use crate::editor::{
+    backend,
+    renderer::{Rect, Renderable, RenderingContext},
+};
 
 #[derive(Debug)]
 pub struct Gutter {
@@ -14,14 +17,23 @@ impl Gutter {
     pub fn width(&self) -> usize {
         self.width
     }
+}
 
-    /// Renders the gutter for the given screen row and viewport.
-    pub fn render_row(&self, row: usize, backend: &TerminalBackend) -> Result<()> {
-        // Reserve two spaces at the end of the gutter.
-        let padding_width = self.width.saturating_sub(2);
+impl Renderable for Gutter {
+    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+        for row in rect.rows() {
+            ctx.backend.move_cursor(rect.col, row)?;
 
-        let s = format!("{:>width$}  ", row.saturating_add(1), width = padding_width);
-        backend.write(&s)?;
+            // Reserve two spaces at the end of the gutter.
+            let padding_width = self.width.saturating_sub(2);
+            let document_row = ctx.document.viewport_row_offset() + row;
+            let s = format!(
+                "{:>width$}  ",
+                document_row.saturating_add(1),
+                width = padding_width
+            );
+            ctx.backend.write(&s)?;
+        }
         Ok(())
     }
 }

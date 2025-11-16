@@ -1,7 +1,10 @@
 use crossterm::style::Stylize;
 use std::time::{Duration, Instant};
 
-use crate::editor::{Mode, Result, backend::TerminalBackend, document::Document};
+use crate::editor::{
+    backend,
+    renderer::{Rect, Renderable, RenderingContext},
+};
 
 #[derive(Debug, Clone)]
 pub struct Message {
@@ -73,29 +76,6 @@ impl StatusBar {
             self.message = None;
         }
     }
-
-    /// Renders the status bar.
-    pub fn render(&self, mode: Mode, document: &Document, backend: &TerminalBackend) -> Result<()> {
-        let mode_string = mode.to_string();
-        let file_name = document.file_name().bold();
-
-        let dirty_marker = if document.is_dirty() {
-            "*".bold().to_string()
-        } else {
-            " ".into()
-        };
-
-        let (cursor_col, cursor_row) = document.cursor_position();
-        let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
-
-        let status = format!(
-            "{mode_string} {file_name}{dirty_marker} {cursor_position} {}",
-            self.message.as_ref().map(|m| m.text()).unwrap_or_default()
-        );
-
-        backend.write(&status)?;
-        Ok(())
-    }
 }
 
 impl Default for StatusBar {
@@ -104,5 +84,31 @@ impl Default for StatusBar {
             height: Self::DEFAULT_HEIGHT,
             message: None,
         }
+    }
+}
+
+impl Renderable for StatusBar {
+    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+        ctx.backend.move_cursor(rect.col, rect.row)?;
+
+        let mode = ctx.mode.to_string();
+        let file_name = ctx.document.file_name().bold();
+
+        let dirty_marker = if ctx.document.is_dirty() {
+            "*".bold().to_string()
+        } else {
+            " ".into()
+        };
+
+        let (cursor_col, cursor_row) = ctx.document.cursor_position();
+        let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
+
+        let status = format!(
+            "{mode} {file_name}{dirty_marker} {cursor_position} {}",
+            self.message.as_ref().map(|m| m.text()).unwrap_or_default()
+        );
+
+        ctx.backend.write(&status)?;
+        Ok(())
     }
 }

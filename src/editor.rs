@@ -15,6 +15,7 @@ use crate::editor::{
     gutter::Gutter,
     keymap::Keymap,
     prompt::{PromptAction, PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
+    renderer::{RenderingContext, compositor::Compositor},
     status_bar::{Message, StatusBar},
 };
 
@@ -25,6 +26,7 @@ mod document;
 mod gutter;
 mod keymap;
 mod prompt;
+mod renderer;
 mod status_bar;
 
 // TODO: Make this adapt to the current buffer/be configurable.
@@ -41,7 +43,7 @@ pub enum Error {
     BackendError(#[from] backend::Error),
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     /// A mode for editing text.
     #[default]
@@ -98,10 +100,7 @@ impl Editor {
         let gutter = Gutter::new(GUTTER_WIDTH);
         let status_bar = StatusBar::default();
 
-        let viewport = Viewport::new(
-            columns as usize - gutter.width(),
-            rows as usize - status_bar.height(),
-        );
+        let viewport = Viewport::new(columns - gutter.width(), rows - status_bar.height());
         let document = Document::new(buffer, viewport);
 
         // Initialize commands and keybindings.
@@ -129,7 +128,7 @@ impl Editor {
         // TODO: Keep track of all open buffers.
         let buffer = Buffer::open_new_or_existing_file(&path)?;
         let (width, height) = self.backend.size()?;
-        let viewport = Viewport::new(width as usize, height as usize);
+        let viewport = Viewport::new(width, height);
         self.document = Document::new(buffer, viewport);
         Ok(())
     }
@@ -300,34 +299,26 @@ impl Editor {
     }
 
     /// Renders the editor to the terminal.
-    pub fn render(&self) -> Result<()> {
+    pub fn render(&mut self) -> Result<()> {
         self.backend.hide_cursor()?;
         self.backend.move_cursor(0, 0)?;
         self.backend.clear_all()?;
 
-        let start_row = self.document.viewport_row_offset();
-        let end_row = start_row + self.document.viewport_height();
+        // TODO: Store in editor.
+        let compositor = Compositor {
+            gutter: &self.gutter,
+            document: &self.document,
+            status_bar: &self.status_bar,
+            prompt_manager: &self.prompt_manager,
+            command_palette: &self.command_palette,
+        };
 
-        for row in start_row..end_row {
-            if self.document.row(row).is_some() {
-                self.gutter.render_row(row, &self.backend)?;
-                self.document.render_row(row, &self.backend)?;
-            }
-
-            self.backend.write("\r\n")?;
-        }
-
-        self.status_bar
-            .render(self.mode, &self.document, &self.backend)?;
-
-        // TODO: Implement a compositor.
-        if let Some(active) = &self.prompt_manager.active_prompt {
-            active.prompt.render(&self.backend)?;
-        } else if self.mode == Mode::Command {
-            self.command_palette.render(&self.backend)?;
-        } else {
-            self.document.render_cursor(&self.gutter, &self.backend)?;
-        }
+        let mut rendering_context = RenderingContext {
+            backend: &mut self.backend,
+            mode: &self.mode,
+            document: &self.document,
+        };
+        compositor.render(&mut rendering_context)?;
 
         self.backend.show_cursor()?;
         self.backend.flush()?;

@@ -1,12 +1,12 @@
 use crossterm::event::KeyEvent;
 
-use crate::editor::{Editor, Result, backend::TerminalBackend};
+use crate::editor::{Editor, Result, renderer::Renderable};
 
 pub mod confirm;
 pub mod search;
 
 /// A trait for defining prompts.
-pub trait Prompt {
+pub trait Prompt: Renderable {
     /// Handles an input event and returns a [`PromptStatus`] indicating whether the prompt should
     /// return or continue.
     fn process_key(&mut self, event: &KeyEvent) -> PromptStatus;
@@ -15,9 +15,6 @@ pub trait Prompt {
     fn on_changed(&mut self) -> PromptAction {
         PromptAction::None
     }
-
-    /// Renders the prompt to the terminal.
-    fn render(&self, backend: &TerminalBackend) -> Result<()>;
 }
 
 /// A callback that is called when the prompt is done.
