@@ -18,6 +18,7 @@ impl Keymap {
 #[rustfmt::skip]
 impl Default for Keymap {
     fn default() -> Self {
+        // TODO: Map to action enums instead of command names.
         let mut map = HashMap::new();
         // Editor actions.
         map.insert(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL), "quit");

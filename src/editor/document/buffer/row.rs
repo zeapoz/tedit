@@ -67,8 +67,8 @@ impl Row {
         offset_text.find(s).map(|x| x + offset)
     }
 
-    /// Returns a `Vec` of characters that should be visible on screen given a [`Viewport`].
-    pub fn visible_chars(&self, viewport: &Viewport) -> Vec<char> {
+    /// Returns a `String` of the characters that should be visible on screen given a [`Viewport`].
+    pub fn visible_chars(&self, viewport: &Viewport) -> String {
         self.chars()
             .skip(viewport.col_offset)
             .take(viewport.width())

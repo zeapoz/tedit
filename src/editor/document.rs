@@ -165,8 +165,12 @@ impl Renderable for Document {
             ctx.backend.move_cursor(rect.col, row)?;
 
             let buffer_row = start_row + row;
-            self.buffer
-                .render_row(buffer_row, &self.viewport, ctx.backend)?;
+            let row_visible_chars = self
+                .buffer
+                .row(buffer_row)
+                .map(|r| r.visible_chars(&self.viewport))
+                .unwrap_or_default();
+            ctx.backend.write(&row_visible_chars)?;
         }
         Ok(())
     }

@@ -288,7 +288,7 @@ impl Editor {
     }
 
     /// Exits the editor.
-    pub fn exit(&self) -> Result<()> {
+    pub fn exit(&mut self) -> Result<()> {
         self.backend.deinitialize()?;
         Ok(())
     }

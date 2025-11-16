@@ -5,10 +5,7 @@ use std::{
 
 use thiserror::Error;
 
-use crate::editor::{
-    backend::{self, TerminalBackend},
-    document::{buffer::row::Row, cursor::Cursor, viewport::Viewport},
-};
+use crate::editor::document::{buffer::row::Row, cursor::Cursor};
 
 pub mod row;
 
@@ -192,23 +189,6 @@ impl Buffer {
     /// Returns true if the buffer has been modified.
     pub fn is_dirty(&self) -> bool {
         self.dirty
-    }
-
-    /// Renders the row at the given screen row and viewport.
-    pub fn render_row(
-        &self,
-        row: usize,
-        viewport: &Viewport,
-        backend: &TerminalBackend,
-    ) -> Result<(), backend::Error> {
-        let visible_chars: String = self
-            .row(row)
-            .map(|r| r.visible_chars(viewport))
-            .unwrap_or_default()
-            .iter()
-            .collect();
-
-        backend.write(&visible_chars)
     }
 }
 
