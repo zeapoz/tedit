@@ -13,6 +13,7 @@ use crate::editor::{
 
 pub mod buffer;
 pub mod cursor;
+pub mod manager;
 pub mod viewport;
 
 #[derive(Debug, Default, Clone)]
@@ -27,6 +28,15 @@ impl Document {
     pub fn new(buffer: Buffer, viewport: Viewport) -> Self {
         Self {
             buffer,
+            cursor: Cursor::default(),
+            viewport,
+        }
+    }
+
+    /// Returns a new empty document.
+    pub fn new_empty(viewport: Viewport) -> Self {
+        Self {
+            buffer: Buffer::default(),
             cursor: Cursor::default(),
             viewport,
         }
@@ -130,6 +140,11 @@ impl Document {
         self.viewport.scroll_to_cursor(&self.cursor);
     }
 
+    /// Updates the viewport to match the current window dimensions.
+    pub fn update_viewport(&mut self, width: usize, height: usize) {
+        self.viewport.update_size(width, height);
+    }
+
     // TODO: These kind of mappings should happen in some UI layer.
     /// Handles a click event and maps the position to the corresponding row and column.
     pub fn click(&mut self, col: usize, row: usize, gutter: &Gutter) {
@@ -160,6 +175,7 @@ impl Document {
 
 impl Renderable for Document {
     fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+        // Update viewport to match the dimensions of the given rectangle.
         let start_row = self.viewport.row_offset;
         for row in rect.rows() {
             ctx.backend.move_cursor(rect.col, row)?;

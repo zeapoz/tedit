@@ -148,7 +148,7 @@ impl CommandPalette {
 
     /// Selects the previous command in the command palette, wraoping around at the start. Returns
     /// the name of the selected command.
-    pub fn select_previous_command(&mut self) {
+    pub fn select_prev_command(&mut self) {
         let prev_index = if self.selected_index == 0 {
             self.filtered_commands.len().saturating_sub(1)
         } else {

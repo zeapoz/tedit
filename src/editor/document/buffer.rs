@@ -99,6 +99,9 @@ impl Buffer {
             .get(cursor.row())
             .map(|r| r.len())
             .unwrap_or_default();
+        if current_row_len == 0 {
+            return;
+        }
 
         // If the cursor is at the last column, join with the next row. Otherwise, just delete the
         // character.

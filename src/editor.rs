@@ -10,6 +10,7 @@ use crate::editor::{
     document::{
         Document,
         buffer::{self, Buffer},
+        manager::DocumentManager,
         viewport::Viewport,
     },
     gutter::Gutter,
@@ -63,8 +64,8 @@ impl fmt::Display for Mode {
 }
 
 pub struct Editor {
-    /// The currently open document.
-    document: Document,
+    /// The document manager.
+    document_manager: DocumentManager,
     /// The gutter.
     gutter: Gutter,
     /// The status bar.
@@ -103,6 +104,9 @@ impl Editor {
         let viewport = Viewport::new(columns - gutter.width(), rows - status_bar.height());
         let document = Document::new(buffer, viewport);
 
+        let mut document_manager = DocumentManager::default();
+        document_manager.add(document);
+
         // Initialize commands and keybindings.
         let mut command_registry = CommandRegistry::new();
         register_commands(&mut command_registry);
@@ -110,7 +114,7 @@ impl Editor {
         let command_palette = CommandPalette::new(&command_registry);
 
         Ok(Self {
-            document,
+            document_manager,
             gutter,
             status_bar,
             backend,
@@ -123,21 +127,20 @@ impl Editor {
         })
     }
 
-    /// Opens a file and loads its contents into the editor.
+    /// Opens a new file and loads its contents into the document manager.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         // TODO: Keep track of all open buffers.
         let buffer = Buffer::open_new_or_existing_file(&path)?;
         let (width, height) = self.backend.size()?;
         let viewport = Viewport::new(width, height);
-        self.document = Document::new(buffer, viewport);
+        self.document_manager.add(Document::new(buffer, viewport));
         Ok(())
     }
 
     /// Runs the editor main loop.
     pub fn run(&mut self) -> Result<()> {
         while !self.should_quit {
-            self.document.scroll_to_cursor();
-            self.update();
+            self.update()?;
             self.render()?;
 
             let event = event::read()?;
@@ -173,7 +176,7 @@ impl Editor {
                         }
                     }
                 } else if let KeyCode::Char(c) = event.code {
-                    self.document.insert_char(c);
+                    self.document_manager.active_mut().insert_char(c);
                 }
             }
             Event::Mouse(MouseEvent {
@@ -182,8 +185,11 @@ impl Editor {
                 row,
                 ..
             }) => {
-                self.document
-                    .click(column as usize, row as usize, &self.gutter);
+                self.document_manager.active_mut().click(
+                    column as usize,
+                    row as usize,
+                    &self.gutter,
+                );
             }
             _ => {}
         }
@@ -209,7 +215,7 @@ impl Editor {
                 }
                 KeyCode::Tab => self.command_palette.autocomplete_or_next(),
                 KeyCode::Char(c) => self.command_palette.insert_char(c),
-                KeyCode::Down | KeyCode::BackTab => self.command_palette.select_previous_command(),
+                KeyCode::Down | KeyCode::BackTab => self.command_palette.select_prev_command(),
                 KeyCode::Up => self.command_palette.select_next_command(),
                 KeyCode::Backspace => self.command_palette.delete_char(),
                 _ => {}
@@ -227,7 +233,7 @@ impl Editor {
                 PromptStatus::Changed => {
                     let action = active.prompt.on_changed();
                     if let PromptAction::MoveCursor { col, row } = action {
-                        self.document.move_cursor_to(col, row);
+                        self.document_manager.active_mut().move_cursor_to(col, row);
                     }
                 }
                 PromptStatus::Done(response) => {
@@ -258,7 +264,7 @@ impl Editor {
     }
 
     /// Saves the active buffer.
-    pub fn save_active_buffer<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
+    pub fn save_active_document<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
         let path = path.map(|p| p.as_ref().to_path_buf());
 
         // It a path was given, attempt to save the buffer to that path, prompting to overwrite if
@@ -266,7 +272,7 @@ impl Editor {
         if let Some(path) = path {
             // TODO: Use eyre to handle errors instead of long matches.
             if let Err(buffer::Error::SaveError(buffer::SaveError::FileAlreadyExists(_))) =
-                self.document.save_as(&path, false)
+                self.document_manager.active_mut().save_as(&path, false)
             {
                 self.prompt_manager.show_prompt(
                     Box::new(ConfirmPrompt::new(
@@ -274,15 +280,51 @@ impl Editor {
                     )),
                     move |editor, response| {
                         if response == PromptResponse::Yes {
-                            editor.document.save_as(&path, true)?;
+                            editor.document_manager.active_mut().save_as(&path, true)?;
                         }
                         Ok(())
                     },
                 )
             }
         } else {
-            self.document.save()?;
+            self.document_manager.active_mut().save()?;
         }
+
+        Ok(())
+    }
+
+    /// Saves all open documents.
+    pub fn save_all_open_documents(&mut self) -> Result<()> {
+        for document in self.document_manager.iter_mut() {
+            document.save()?;
+        }
+        Ok(())
+    }
+
+    /// Closes the active document. If the document is dirty, prompts the user to save the document
+    /// before closing it.
+    pub fn close_active_document(&mut self) -> Result<()> {
+        if !self.document_manager.active().is_dirty() {
+            self.document_manager.remove_active();
+            return Ok(());
+        }
+
+        self.prompt_manager.show_prompt(
+            Box::new(ConfirmPrompt::new(
+                "Document contains unsaved changes, do you want to save before closing it?",
+            )),
+            |editor, response| {
+                match response {
+                    PromptResponse::Yes => {
+                        editor.save_active_document(None::<&str>)?;
+                        editor.document_manager.remove_active()
+                    }
+                    PromptResponse::No => editor.document_manager.remove_active(),
+                    _ => return Ok(()),
+                };
+                Ok(())
+            },
+        );
 
         Ok(())
     }
@@ -294,8 +336,17 @@ impl Editor {
     }
 
     /// Updates the state of the editor.
-    pub fn update(&mut self) {
-        self.status_bar.update()
+    pub fn update(&mut self) -> Result<()> {
+        self.status_bar.update();
+
+        // HACK: Update the viewport to match the dimensions of the terminal, _before_ rendering to
+        // avoid borrowing issues. We should instead calculate all the compositor rects here, then
+        // use the document rect to update the viewport.
+        let (width, height) = self.backend.size()?;
+        let active_document = self.document_manager.active_mut();
+        active_document.update_viewport(width, height);
+        active_document.scroll_to_cursor();
+        Ok(())
     }
 
     /// Renders the editor to the terminal.
@@ -307,7 +358,7 @@ impl Editor {
         // TODO: Store in editor.
         let compositor = Compositor {
             gutter: &self.gutter,
-            document: &self.document,
+            document: self.document_manager.active(),
             status_bar: &self.status_bar,
             prompt_manager: &self.prompt_manager,
             command_palette: &self.command_palette,
@@ -316,7 +367,7 @@ impl Editor {
         let mut rendering_context = RenderingContext {
             backend: &mut self.backend,
             mode: &self.mode,
-            document: &self.document,
+            document: self.document_manager.active(),
         };
         compositor.render(&mut rendering_context)?;
 

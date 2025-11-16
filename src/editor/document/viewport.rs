@@ -49,6 +49,12 @@ impl Viewport {
         scrolled
     }
 
+    /// Updates the viewport to match the given dimensions.
+    pub fn update_size(&mut self, width: usize, height: usize) {
+        self.width = width;
+        self.height = height;
+    }
+
     /// Returns the logical position from a position on the screen.
     pub fn screen_position(&mut self, col: usize, row: usize, gutter: &Gutter) -> (usize, usize) {
         (
