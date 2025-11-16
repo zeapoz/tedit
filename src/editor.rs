@@ -5,27 +5,27 @@ use thiserror::Error;
 
 use crate::editor::{
     backend::TerminalBackend,
-    buffer::Buffer,
     command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
-    cursor::Cursor,
+    document::{
+        Document,
+        buffer::{self, Buffer},
+        viewport::Viewport,
+    },
     gutter::Gutter,
     keymap::Keymap,
     prompt::{PromptAction, PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
     status_bar::{Message, StatusBar},
-    viewport::Viewport,
 };
 
 pub mod backend;
-mod buffer;
 mod command;
 mod command_palette;
-mod cursor;
+mod document;
 mod gutter;
 mod keymap;
 mod prompt;
 mod status_bar;
-mod viewport;
 
 // TODO: Make this adapt to the current buffer/be configurable.
 /// The width of the gutter.
@@ -61,13 +61,8 @@ impl fmt::Display for Mode {
 }
 
 pub struct Editor {
-    // TODO: Store buffer in `Arc`.
-    /// The currently open buffer.
-    buffer: Buffer,
-    /// The cursor position.
-    cursor: Cursor,
-    /// The current viewport.
-    viewport: Viewport,
+    /// The currently open document.
+    document: Document,
     /// The gutter.
     gutter: Gutter,
     /// The status bar.
@@ -94,7 +89,7 @@ impl Editor {
         let backend = TerminalBackend::initialize()?;
 
         let buffer = if let Some(path) = file {
-            Buffer::open_file(path).unwrap_or_default()
+            Buffer::open_new_or_existing_file(path).unwrap_or_default()
         } else {
             Buffer::default()
         };
@@ -107,6 +102,7 @@ impl Editor {
             columns as usize - gutter.width(),
             rows as usize - status_bar.height(),
         );
+        let document = Document::new(buffer, viewport);
 
         // Initialize commands and keybindings.
         let mut command_registry = CommandRegistry::new();
@@ -115,9 +111,7 @@ impl Editor {
         let command_palette = CommandPalette::new(&command_registry);
 
         Ok(Self {
-            buffer,
-            cursor: Cursor::default(),
-            viewport,
+            document,
             gutter,
             status_bar,
             backend,
@@ -133,15 +127,17 @@ impl Editor {
     /// Opens a file and loads its contents into the editor.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         // TODO: Keep track of all open buffers.
-        self.buffer = Buffer::open_new_or_existing_file(&path)?;
-        self.cursor.move_to(0, 0, &self.buffer);
+        let buffer = Buffer::open_new_or_existing_file(&path)?;
+        let (width, height) = self.backend.size()?;
+        let viewport = Viewport::new(width as usize, height as usize);
+        self.document = Document::new(buffer, viewport);
         Ok(())
     }
 
     /// Runs the editor main loop.
     pub fn run(&mut self) -> Result<()> {
         while !self.should_quit {
-            self.viewport.scroll_to_cursor(&self.cursor);
+            self.document.scroll_to_cursor();
             self.update();
             self.render()?;
 
@@ -177,10 +173,8 @@ impl Editor {
                             self.show_err_message(&err.to_string());
                         }
                     }
-                } else if let KeyCode::Char(c) = event.code
-                    && self.buffer.insert_char(c, &self.cursor)
-                {
-                    self.cursor.move_right(&self.buffer);
+                } else if let KeyCode::Char(c) = event.code {
+                    self.document.insert_char(c);
                 }
             }
             Event::Mouse(MouseEvent {
@@ -189,10 +183,8 @@ impl Editor {
                 row,
                 ..
             }) => {
-                let (logical_col, logical_row) =
-                    self.viewport
-                        .screen_position(column as usize, row as usize, &self.gutter);
-                self.cursor.move_to(logical_col, logical_row, &self.buffer);
+                self.document
+                    .click(column as usize, row as usize, &self.gutter);
             }
             _ => {}
         }
@@ -236,7 +228,7 @@ impl Editor {
                 PromptStatus::Changed => {
                     let action = active.prompt.on_changed();
                     if let PromptAction::MoveCursor { col, row } = action {
-                        self.cursor.move_to(col, row, &self.buffer);
+                        self.document.move_cursor_to(col, row);
                     }
                 }
                 PromptStatus::Done(response) => {
@@ -273,8 +265,9 @@ impl Editor {
         // It a path was given, attempt to save the buffer to that path, prompting to overwrite if
         // the file already exists. Otherwise, save the buffer to the current path.
         if let Some(path) = path {
+            // TODO: Use eyre to handle errors instead of long matches.
             if let Err(buffer::Error::SaveError(buffer::SaveError::FileAlreadyExists(_))) =
-                self.buffer.save_as(&path, false)
+                self.document.save_as(&path, false)
             {
                 self.prompt_manager.show_prompt(
                     Box::new(ConfirmPrompt::new(
@@ -282,14 +275,14 @@ impl Editor {
                     )),
                     move |editor, response| {
                         if response == PromptResponse::Yes {
-                            editor.buffer.save_as(&path, true)?;
+                            editor.document.save_as(&path, true)?;
                         }
                         Ok(())
                     },
                 )
             }
         } else {
-            self.buffer.save()?;
+            self.document.save()?;
         }
 
         Ok(())
@@ -312,19 +305,20 @@ impl Editor {
         self.backend.move_cursor(0, 0)?;
         self.backend.clear_all()?;
 
-        for screen_row in 0..self.viewport.height() {
-            let logical_row = self.viewport.row_offset + screen_row;
-            if self.buffer.row(logical_row).is_some() {
-                self.gutter.render_row(logical_row, &self.backend)?;
-                self.buffer
-                    .render_row(logical_row, &self.viewport, &self.backend)?;
+        let start_row = self.document.viewport_row_offset();
+        let end_row = start_row + self.document.viewport_height();
+
+        for row in start_row..end_row {
+            if self.document.row(row).is_some() {
+                self.gutter.render_row(row, &self.backend)?;
+                self.document.render_row(row, &self.backend)?;
             }
 
             self.backend.write("\r\n")?;
         }
 
         self.status_bar
-            .render(self.mode, &self.buffer, &self.cursor, &self.backend)?;
+            .render(self.mode, &self.document, &self.backend)?;
 
         // TODO: Implement a compositor.
         if let Some(active) = &self.prompt_manager.active_prompt {
@@ -332,8 +326,7 @@ impl Editor {
         } else if self.mode == Mode::Command {
             self.command_palette.render(&self.backend)?;
         } else {
-            self.cursor
-                .render(&self.viewport, &self.gutter, &self.backend)?;
+            self.document.render_cursor(&self.gutter, &self.backend)?;
         }
 
         self.backend.show_cursor()?;

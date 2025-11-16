@@ -7,12 +7,10 @@ use thiserror::Error;
 
 use crate::editor::{
     backend::{self, TerminalBackend},
-    buffer::row::Row,
-    cursor::Cursor,
-    viewport::Viewport,
+    document::{buffer::row::Row, cursor::Cursor, viewport::Viewport},
 };
 
-mod row;
+pub mod row;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -39,7 +37,7 @@ pub struct Buffer {
     /// The path of the file this buffer represents.
     filepath: Option<PathBuf>,
     /// Whether the buffer has been modified.
-    pub dirty: bool,
+    dirty: bool,
 }
 
 impl Buffer {
@@ -158,23 +156,6 @@ impl Buffer {
             .join("\n")
     }
 
-    /// Renders the row at the given screen row and viewport.
-    pub fn render_row(
-        &self,
-        row: usize,
-        viewport: &Viewport,
-        backend: &TerminalBackend,
-    ) -> Result<(), backend::Error> {
-        let visible_chars: String = self
-            .row(row)
-            .map(|r| r.visible_chars(viewport))
-            .unwrap_or_default()
-            .iter()
-            .collect();
-
-        backend.write(&visible_chars)
-    }
-
     /// Saves the buffer to the path stored in the buffer.
     pub fn save(&mut self) -> Result<(), Error> {
         let path = self.filepath.as_ref().ok_or(SaveError::MissingPath)?;
@@ -206,6 +187,28 @@ impl Buffer {
             .as_ref()
             .map(|f| f.to_string_lossy().to_string())
             .unwrap_or(NO_FILENAME.into())
+    }
+
+    /// Returns true if the buffer has been modified.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Renders the row at the given screen row and viewport.
+    pub fn render_row(
+        &self,
+        row: usize,
+        viewport: &Viewport,
+        backend: &TerminalBackend,
+    ) -> Result<(), backend::Error> {
+        let visible_chars: String = self
+            .row(row)
+            .map(|r| r.visible_chars(viewport))
+            .unwrap_or_default()
+            .iter()
+            .collect();
+
+        backend.write(&visible_chars)
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::editor::viewport::Viewport;
+use crate::editor::document::viewport::Viewport;
 
 #[derive(Debug, Default, Clone)]
 pub struct Row {

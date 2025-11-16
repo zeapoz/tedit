@@ -3,27 +3,23 @@ use crossterm::event::{KeyCode, KeyEvent};
 use crate::editor::{
     Result,
     backend::TerminalBackend,
-    buffer::Buffer,
-    cursor::Cursor,
+    document::Document,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
 };
 
 #[derive(Debug)]
 pub struct SearchPrompt {
     query: String,
-    // TODO: Buffer should be an `Arc`.
-    /// The buffer to search within.
-    buffer: Buffer,
-    /// The cursor to use when searching.
-    cursor: Cursor,
+    // TODO: Should not be copied.
+    /// The document to search within.
+    document: Document,
 }
 
 impl SearchPrompt {
-    pub fn new(buffer: Buffer, cursor: Cursor) -> Self {
+    pub fn new(document: Document) -> Self {
         Self {
             query: String::new(),
-            buffer,
-            cursor,
+            document,
         }
     }
 }
@@ -46,7 +42,7 @@ impl Prompt for SearchPrompt {
     }
 
     fn on_changed(&mut self) -> PromptAction {
-        if let Some((col, row)) = self.buffer.find_next(&self.query, &self.cursor) {
+        if let Some((col, row)) = self.document.find_next(&self.query) {
             PromptAction::MoveCursor { col, row }
         } else {
             PromptAction::None

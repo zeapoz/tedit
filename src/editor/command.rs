@@ -126,7 +126,7 @@ define_commands! {
         name: "quit",
         description: "Quit the editor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            if !editor.buffer.dirty {
+            if !editor.document.is_dirty() {
                 editor.should_quit = true;
             } else {
                 editor.prompt_manager.show_prompt(
@@ -181,7 +181,7 @@ define_commands! {
         description: "Open a search prompt",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.prompt_manager.show_prompt(
-                Box::new(SearchPrompt::new(editor.buffer.clone(), editor.cursor)),
+                Box::new(SearchPrompt::new(editor.document.clone())),
                 |editor, response| {
                     // TODO: Use text to populate a new search state struct in editor for jumping
                     // between all search results.
@@ -216,7 +216,7 @@ define_commands! {
         name: "move_cursor_left",
         description: "Move the cursor left",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.cursor.move_left(&editor.buffer);
+            editor.document.move_cursor_left();
             Ok(())
         }
     },
@@ -224,7 +224,7 @@ define_commands! {
         name: "move_cursor_right",
         description: "Move the cursor right",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.cursor.move_right(&editor.buffer);
+            editor.document.move_cursor_right();
             Ok(())
         }
     },
@@ -232,7 +232,7 @@ define_commands! {
         name: "move_cursor_up",
         description: "Move the cursor up",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.cursor.move_up(&editor.buffer);
+            editor.document.move_cursor_up();
             Ok(())
         }
     },
@@ -240,7 +240,7 @@ define_commands! {
         name: "move_cursor_down",
         description: "Move the cursor down",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.cursor.move_down(&editor.buffer);
+            editor.document.move_cursor_down();
             Ok(())
         }
     },
@@ -248,7 +248,7 @@ define_commands! {
         name: "move_cursor_to_start_of_row",
         description: "Move the cursor to the start of the row",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.cursor.move_to_start_of_row();
+            editor.document.move_cursor_to_start_of_row();
             Ok(())
         }
     },
@@ -256,7 +256,7 @@ define_commands! {
         name: "move_cursor_to_end_of_row",
         description: "Move the cursor to the end of the row",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.cursor.move_to_end_of_row(&editor.buffer);
+            editor.document.move_cursor_to_end_of_row();
             Ok(())
         }
     },
@@ -265,8 +265,7 @@ define_commands! {
         name: "insert_newline",
         description: "Insert a newline",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.buffer.insert_newline(&editor.cursor);
-            editor.cursor.move_to_start_of_next_row(&editor.buffer);
+            editor.document.insert_newline();
             Ok(())
         }
     },
@@ -274,7 +273,7 @@ define_commands! {
         name: "delete_char",
         description: "Delete the character under the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.buffer.delete_char(&editor.cursor);
+            editor.document.delete_char();
             Ok(())
         }
     },
@@ -282,23 +281,7 @@ define_commands! {
         name: "delete_char_before",
         description: "Delete the character before the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            if editor.cursor.col() == 0 && editor.cursor.row() > 0 {
-                let prev_row = editor.cursor.row().saturating_sub(1);
-                let prev_row_len = editor
-                    .buffer
-                    .row(prev_row)
-                    .map(|r| r.len())
-                    .unwrap_or_default();
-
-                editor.buffer.join_rows(prev_row, editor.cursor.row());
-                editor.cursor.move_to(prev_row_len, prev_row, &editor.buffer);
-            } else {
-                if editor.cursor.col() == 0 && editor.cursor.row() == 0 {
-                    return Ok(());
-                }
-                editor.cursor.move_left(&editor.buffer);
-                editor.buffer.delete_char(&editor.cursor);
-            }
+            editor.document.delete_char_before();
             Ok(())
         }
     },

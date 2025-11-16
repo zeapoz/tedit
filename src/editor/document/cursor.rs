@@ -1,5 +1,5 @@
 use crate::editor::{
-    Result, backend::TerminalBackend, buffer::Buffer, gutter::Gutter, viewport::Viewport,
+    Result, backend::TerminalBackend, buffer::Buffer, document::viewport::Viewport, gutter::Gutter,
 };
 
 #[derive(Debug, Default, Clone, Copy)]

@@ -1,6 +1,6 @@
-use crate::editor::{cursor::Cursor, gutter::Gutter};
+use crate::editor::{document::cursor::Cursor, gutter::Gutter};
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Viewport {
     /// The column offset of the viewport.
     pub col_offset: usize,
@@ -23,7 +23,7 @@ impl Viewport {
         }
     }
 
-    /// Scroll the viewport to the given cursor such that the cursor is always visible. Returns
+    /// Scroll the viewport to the given cursor such that the cursor is visible. Returns
     /// `true` if the viewport was scrolled.
     pub fn scroll_to_cursor(&mut self, cursor: &Cursor) -> bool {
         let mut scrolled = false;
