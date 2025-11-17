@@ -1,9 +1,9 @@
 use crate::editor::{
-    backend,
+    backend::{self, RenderingBackend},
     renderer::{Rect, Renderable, RenderingContext},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Gutter {
     width: usize,
 }
@@ -20,9 +20,14 @@ impl Gutter {
 }
 
 impl Renderable for Gutter {
-    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+    fn render(
+        &self,
+        ctx: &RenderingContext,
+        rect: Rect,
+        backend: &mut RenderingBackend,
+    ) -> Result<(), backend::Error> {
         for row in rect.rows() {
-            ctx.backend.move_cursor(rect.col, row)?;
+            backend.move_cursor(rect.col, row)?;
 
             // Reserve two spaces at the end of the gutter.
             let padding_width = self.width.saturating_sub(2);
@@ -32,7 +37,7 @@ impl Renderable for Gutter {
                 document_row.saturating_add(1),
                 width = padding_width
             );
-            ctx.backend.write(&s)?;
+            backend.write(&s)?;
         }
         Ok(())
     }

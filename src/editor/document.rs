@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::editor::{
-    backend,
+    backend::{self, RenderingBackend},
     document::{
         buffer::{Buffer, Error},
         cursor::Cursor,
@@ -174,11 +174,16 @@ impl Document {
 }
 
 impl Renderable for Document {
-    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+    fn render(
+        &self,
+        _ctx: &RenderingContext,
+        rect: Rect,
+        backend: &mut RenderingBackend,
+    ) -> Result<(), backend::Error> {
         // Update viewport to match the dimensions of the given rectangle.
         let start_row = self.viewport.row_offset;
         for row in rect.rows() {
-            ctx.backend.move_cursor(rect.col, row)?;
+            backend.move_cursor(rect.col, row)?;
 
             let buffer_row = start_row + row;
             let row_visible_chars = self
@@ -186,7 +191,7 @@ impl Renderable for Document {
                 .row(buffer_row)
                 .map(|r| r.visible_chars(&self.viewport))
                 .unwrap_or_default();
-            ctx.backend.write(&row_visible_chars)?;
+            backend.write(&row_visible_chars)?;
         }
         Ok(())
     }

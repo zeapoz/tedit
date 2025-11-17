@@ -1,24 +1,65 @@
 use crossterm::event::KeyEvent;
 
-use crate::editor::{Editor, Result, renderer::Renderable};
+use crate::editor::{
+    self, Editor, backend::{self, RenderingBackend}, prompt::{confirm::ConfirmPrompt, search::SearchPrompt}, renderer::{Rect, Renderable, RenderingContext}
+};
 
 pub mod confirm;
 pub mod search;
 
 /// A trait for defining prompts.
-pub trait Prompt: Renderable {
+pub trait Prompt: Clone + Renderable {
     /// Handles an input event and returns a [`PromptStatus`] indicating whether the prompt should
     /// return or continue.
     fn process_key(&mut self, event: &KeyEvent) -> PromptStatus;
 
-    /// Returns an action to be when the prompts state has changed.
+    /// Returns an action to be executed when the prompts state has changed.
     fn on_changed(&mut self) -> PromptAction {
         PromptAction::None
     }
 }
 
+/// Defines all types of prompts.
+#[derive(Debug, Clone)]
+pub enum PromptType {
+    Confirm(ConfirmPrompt),
+    Search(SearchPrompt),
+}
+
+impl PromptType {
+    /// Processes an input event and returns a [`PromptStatus`] indicating whether the prompt
+    /// should return or continue.
+    pub fn process_key(&mut self, event: &KeyEvent) -> PromptStatus {
+        match self {
+            Self::Confirm(prompt) => prompt.process_key(event),
+            Self::Search(prompt) => prompt.process_key(event),
+        }
+    }
+
+    /// Returns an action to be executed when the prompts state has changed.
+    pub fn on_changed(&mut self) -> PromptAction {
+        match self {
+            Self::Confirm(prompt) => prompt.on_changed(),
+            Self::Search(prompt) => prompt.on_changed(),
+        }
+    }
+
+    /// Calls the types render method.
+    pub fn render(
+        &self,
+        ctx: &RenderingContext,
+        rect: Rect,
+        backend: &mut RenderingBackend,
+    ) -> Result<(), backend::Error> {
+        match self {
+            Self::Confirm(prompt) => prompt.render(ctx, rect, backend),
+            Self::Search(prompt) => prompt.render(ctx, rect, backend),
+        }
+    }
+}
+
 /// A callback that is called when the prompt is done.
-pub type PromptCallback = dyn FnOnce(&mut Editor, PromptResponse) -> Result<()>;
+pub type PromptCallback = dyn FnOnce(&mut Editor, PromptResponse) -> Result<(), editor::Error>;
 
 /// Represents the available responses of a promp.
 #[derive(Debug, Clone, PartialEq)]
@@ -48,7 +89,7 @@ pub enum PromptStatus {
 }
 
 pub struct ActivePrompt {
-    pub prompt: Box<dyn Prompt>,
+    pub prompt: PromptType,
     /// The callback to execute when the prompt is done.
     pub callback: Box<PromptCallback>,
 }
@@ -60,9 +101,9 @@ pub struct PromptManager {
 
 impl PromptManager {
     /// Shows a new prompt.
-    pub fn show_prompt<F>(&mut self, prompt: Box<dyn Prompt>, callback: F)
+    pub fn show_prompt<F>(&mut self, prompt: PromptType, callback: F)
     where
-        F: FnMut(&mut Editor, PromptResponse) -> Result<()> + 'static,
+        F: FnMut(&mut Editor, PromptResponse) -> Result<(), editor::Error> + 'static,
     {
         self.active_prompt = Some(ActivePrompt {
             prompt,

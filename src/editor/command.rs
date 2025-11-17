@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::editor::{
     self, Editor,
-    prompt::{PromptResponse, confirm::ConfirmPrompt, search::SearchPrompt},
+    prompt::{PromptResponse, PromptType, confirm::ConfirmPrompt, search::SearchPrompt},
 };
 
 #[derive(Debug, Error)]
@@ -130,7 +130,7 @@ define_commands! {
                 editor.should_quit = true;
             } else {
                 editor.prompt_manager.show_prompt(
-                    Box::new(ConfirmPrompt::new("There are open documents with unsaved changes, do you want to save them before quitting?")),
+                    PromptType::Confirm(ConfirmPrompt::new("There are open documents with unsaved changes, do you want to save them before quitting?")),
                     |editor, response| {
                         match response {
                             PromptResponse::Yes => {
@@ -165,7 +165,7 @@ define_commands! {
         description: "Open a search prompt",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.prompt_manager.show_prompt(
-                Box::new(SearchPrompt::new(editor.document_manager.active_mut().clone())),
+                PromptType::Search(SearchPrompt::new(editor.document_manager.active_mut().clone())),
                 |editor, response| {
                     // TODO: Use text to populate a new search state struct in editor for jumping
                     // between all search results.

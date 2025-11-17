@@ -1,10 +1,10 @@
 use std::{fmt, path::Path};
 
-use crossterm::event::{self, Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
 
 use crate::editor::{
-    backend::TerminalBackend,
+    backend::EditorBackend,
     command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
     document::{
@@ -15,10 +15,14 @@ use crate::editor::{
     },
     gutter::Gutter,
     keymap::Keymap,
-    prompt::{PromptAction, PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
+    prompt::{
+        PromptAction, PromptManager, PromptResponse, PromptStatus, PromptType,
+        confirm::ConfirmPrompt,
+    },
     renderer::{
         RenderingContext,
-        compositor::{Compositor, Layout},
+        compositor::Compositor,
+        layout::{Layout, LayoutContext},
     },
     status_bar::{Message, StatusBar},
 };
@@ -73,8 +77,10 @@ pub struct Editor {
     gutter: Gutter,
     /// The status bar.
     status_bar: StatusBar,
-    /// The terminal backend.
-    backend: TerminalBackend,
+    /// The editor backend.
+    backend: EditorBackend,
+    /// The compositor.
+    compositor: Compositor,
     /// The command registry.
     command_registry: CommandRegistry,
     /// The command palette.
@@ -94,7 +100,8 @@ pub struct Editor {
 impl Editor {
     /// Returns a new editor.
     pub fn new<P: AsRef<Path>>(file: Option<P>) -> Result<Self> {
-        let backend = TerminalBackend::initialize()?;
+        let compositor = Compositor::initialize()?;
+        let backend = EditorBackend;
 
         let buffer = if let Some(path) = file {
             Buffer::open_new_or_existing_file(path).unwrap_or_default()
@@ -111,16 +118,17 @@ impl Editor {
         register_commands(&mut command_registry);
 
         let command_palette = CommandPalette::new(&command_registry);
+        let prompt_manager = PromptManager::default();
 
         // Calculate the initial layout of the editor.
-        let compositor = Compositor {
-            gutter: &gutter,
-            document: None,
-            status_bar: &status_bar,
-            prompt_manager: &PromptManager::default(),
-            command_palette: &CommandPalette::new(&CommandRegistry::new()),
-        };
-        let layout = compositor.calculate_layout(&mode, &backend);
+        let layout_context = LayoutContext::new(
+            &mode,
+            &gutter,
+            &status_bar,
+            &prompt_manager,
+            &backend,
+        );
+        let layout = Layout::calculate(&layout_context);
 
         // Create a new document and add it to the document manager.
         let viewport = Viewport::new(layout.document.width, layout.document.height);
@@ -133,10 +141,11 @@ impl Editor {
             gutter,
             status_bar,
             backend,
+            compositor,
             command_registry,
             command_palette,
             keymap: Keymap::default(),
-            prompt_manager: PromptManager::default(),
+            prompt_manager,
             layout,
             mode,
             should_quit: false,
@@ -158,7 +167,7 @@ impl Editor {
             self.update()?;
             self.render()?;
 
-            let event = event::read()?;
+            let event = self.backend.read_event()?;
 
             // Handle prompt input first.
             if self.prompt_manager.active_prompt.is_some() {
@@ -290,7 +299,7 @@ impl Editor {
                 self.document_manager.active_mut().save_as(&path, false)
             {
                 self.prompt_manager.show_prompt(
-                    Box::new(ConfirmPrompt::new(
+                    PromptType::Confirm(ConfirmPrompt::new(
                         "File already exists, do you want to overwrite it?",
                     )),
                     move |editor, response| {
@@ -325,7 +334,7 @@ impl Editor {
         }
 
         self.prompt_manager.show_prompt(
-            Box::new(ConfirmPrompt::new(
+            PromptType::Confirm(ConfirmPrompt::new(
                 "Document contains unsaved changes, do you want to save before closing it?",
             )),
             |editor, response| {
@@ -346,7 +355,7 @@ impl Editor {
 
     /// Exits the editor.
     pub fn exit(&mut self) -> Result<()> {
-        self.backend.deinitialize()?;
+        self.compositor.deinitialize()?;
         Ok(())
     }
 
@@ -355,14 +364,8 @@ impl Editor {
         self.status_bar.update();
 
         // Calculate the new layout of the editor.
-        let compositor = Compositor {
-            gutter: &self.gutter,
-            document: Some(self.document_manager.active()),
-            status_bar: &self.status_bar,
-            prompt_manager: &self.prompt_manager,
-            command_palette: &self.command_palette,
-        };
-        self.layout = compositor.calculate_layout(&self.mode, &self.backend);
+        let layout_context = LayoutContext::from(&*self);
+        self.layout = Layout::calculate(&layout_context);
 
         let active_document = self.document_manager.active_mut();
         active_document.update_viewport(self.layout.document.width, self.layout.document.height);
@@ -370,31 +373,10 @@ impl Editor {
         Ok(())
     }
 
-    /// Renders the editor to the terminal.
+    /// Creates a new rendering context from the editor and calls the renderer.
     pub fn render(&mut self) -> Result<()> {
-        self.backend.hide_cursor()?;
-        self.backend.move_cursor(0, 0)?;
-        self.backend.clear_all()?;
-
-        // TODO: Store in editor.
-        let compositor = Compositor {
-            gutter: &self.gutter,
-            document: Some(self.document_manager.active()),
-            status_bar: &self.status_bar,
-            prompt_manager: &self.prompt_manager,
-            command_palette: &self.command_palette,
-        };
-
-        let mut rendering_context = RenderingContext {
-            backend: &mut self.backend,
-            mode: &self.mode,
-            document: self.document_manager.active(),
-        };
-        compositor.render(&mut rendering_context, &self.layout)?;
-
-        self.backend.show_cursor()?;
-        self.backend.flush()?;
-
+        let rendering_context = RenderingContext::from(&*self);
+        self.compositor.render(rendering_context, &self.layout)?;
         Ok(())
     }
 }

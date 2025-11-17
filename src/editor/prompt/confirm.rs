@@ -1,12 +1,12 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
-    backend,
+    backend::{self, RenderingBackend},
     prompt::{Prompt, PromptResponse, PromptStatus},
     renderer::{Rect, Renderable, RenderingContext},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConfirmPrompt {
     message: String,
 }
@@ -32,12 +32,17 @@ impl Prompt for ConfirmPrompt {
 }
 
 impl Renderable for ConfirmPrompt {
-    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
-        ctx.backend.move_cursor(rect.col, rect.row)?;
-        ctx.backend.clear_line()?;
+    fn render(
+        &self,
+        _ctx: &RenderingContext,
+        rect: Rect,
+        backend: &mut RenderingBackend,
+    ) -> Result<(), backend::Error> {
+        backend.move_cursor(rect.col, rect.row)?;
+        backend.clear_line()?;
 
         let message = format!("{} [y/n] ", self.message);
-        ctx.backend.write(&message)?;
+        backend.write(&message)?;
         Ok(())
     }
 }

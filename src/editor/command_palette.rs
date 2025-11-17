@@ -1,7 +1,7 @@
 use crossterm::style::Stylize;
 
 use crate::editor::{
-    backend,
+    backend::{self, RenderingBackend},
     command::{Command, CommandArgs, CommandRegistry},
     renderer::{Rect, Renderable, RenderingContext},
 };
@@ -24,7 +24,7 @@ impl From<&dyn Command> for CommandInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommandPalette {
     /// The current command query. The query should be a space-seperated list beginning with the
     /// name of the command to execute and ending with the arguments to pass to the command.
@@ -170,20 +170,25 @@ impl CommandPalette {
 }
 
 impl Renderable for CommandPalette {
-    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
+    fn render(
+        &self,
+        _ctx: &RenderingContext,
+        rect: Rect,
+        backend: &mut RenderingBackend,
+    ) -> Result<(), backend::Error> {
         // Render the query prompt.
-        ctx.backend.move_cursor(0, rect.last_row())?;
-        ctx.backend.clear_line()?;
+        backend.move_cursor(0, rect.last_row())?;
+        backend.clear_line()?;
 
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
-        ctx.backend.write(&text)?;
+        backend.write(&text)?;
 
         // Render the command list above the query prompt.
         for i in 0..self.filtered_commands.len() {
             let command = self.filtered_commands.get(i);
             if let Some(command) = command {
-                ctx.backend.move_cursor(0, rect.last_row() - i - 1)?;
-                ctx.backend.clear_line()?;
+                backend.move_cursor(0, rect.last_row() - i - 1)?;
+                backend.clear_line()?;
 
                 // TODO: Show description somwhere, maybe in the status bar.
                 let text = if i == self.selected_index {
@@ -191,7 +196,7 @@ impl Renderable for CommandPalette {
                 } else {
                     command.name.to_string()
                 };
-                ctx.backend.write(&text)?;
+                backend.write(&text)?;
             }
         }
         Ok(())

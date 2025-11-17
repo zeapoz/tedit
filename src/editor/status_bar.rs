@@ -2,7 +2,7 @@ use crossterm::style::Stylize;
 use std::time::{Duration, Instant};
 
 use crate::editor::{
-    backend,
+    backend::{self, RenderingBackend},
     renderer::{Rect, Renderable, RenderingContext},
 };
 
@@ -46,7 +46,7 @@ impl Message {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StatusBar {
     /// The height of the status bar.
     height: usize,
@@ -88,8 +88,13 @@ impl Default for StatusBar {
 }
 
 impl Renderable for StatusBar {
-    fn render(&self, ctx: &mut RenderingContext, rect: Rect) -> Result<(), backend::Error> {
-        ctx.backend.move_cursor(rect.col, rect.row)?;
+    fn render(
+        &self,
+        ctx: &RenderingContext,
+        rect: Rect,
+        backend: &mut RenderingBackend,
+    ) -> Result<(), backend::Error> {
+        backend.move_cursor(rect.col, rect.row)?;
 
         let mode = ctx.mode.to_string();
         let file_name = ctx.document.file_name().bold();
@@ -108,7 +113,7 @@ impl Renderable for StatusBar {
             self.message.as_ref().map(|m| m.text()).unwrap_or_default()
         );
 
-        ctx.backend.write(&status)?;
+        backend.write(&status)?;
         Ok(())
     }
 }

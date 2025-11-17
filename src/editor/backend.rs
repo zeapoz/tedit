@@ -1,7 +1,9 @@
 use std::io::{self, Stdout, Write};
 
 use crossterm::{
-    cursor, event, queue,
+    cursor,
+    event::{self, Event},
+    queue,
     terminal::{self, ClearType},
 };
 
@@ -10,12 +12,30 @@ pub type Error = io::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 // TODO: Convert into implementor of trait.
+/// The backend for handling input and terminal size.
 #[derive(Debug)]
-pub struct TerminalBackend {
+pub struct EditorBackend;
+
+impl EditorBackend {
+    /// Returns the size of the terminal viewport.
+    pub fn size(&self) -> Result<(usize, usize)> {
+        let (cols, rows) = crossterm::terminal::size()?;
+        Ok((cols as usize, rows as usize))
+    }
+
+    /// Reads and returns an event from the backend.
+    pub fn read_event(&self) -> Result<Event> {
+        event::read()
+    }
+}
+
+/// The backend for rendering to the terminal.
+#[derive(Debug)]
+pub struct RenderingBackend {
     stdout: Stdout,
 }
 
-impl TerminalBackend {
+impl RenderingBackend {
     /// Initializes the terminal backend.
     pub fn initialize() -> Result<Self> {
         terminal::enable_raw_mode()?;
@@ -39,12 +59,6 @@ impl TerminalBackend {
         )?;
         terminal::disable_raw_mode()?;
         Ok(())
-    }
-
-    /// Returns the size of the terminal viewport.
-    pub fn size(&self) -> Result<(usize, usize)> {
-        let (cols, rows) = crossterm::terminal::size()?;
-        Ok((cols as usize, rows as usize))
     }
 
     /// Clears the current line.
