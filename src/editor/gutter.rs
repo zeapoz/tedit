@@ -33,9 +33,6 @@ impl Renderable for Gutter {
                 width = padding_width
             );
             ctx.backend.write(&s)?;
-
-            let debug = format!("{}", ctx.document.viewport_row_offset());
-            ctx.backend.write(&debug)?;
         }
         Ok(())
     }

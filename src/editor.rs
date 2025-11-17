@@ -16,7 +16,10 @@ use crate::editor::{
     gutter::Gutter,
     keymap::Keymap,
     prompt::{PromptAction, PromptManager, PromptResponse, PromptStatus, confirm::ConfirmPrompt},
-    renderer::{RenderingContext, compositor::Compositor},
+    renderer::{
+        RenderingContext,
+        compositor::{Compositor, Layout},
+    },
     status_bar::{Message, StatusBar},
 };
 
@@ -80,6 +83,8 @@ pub struct Editor {
     keymap: Keymap,
     /// The prompt manager.
     prompt_manager: PromptManager,
+    /// The current stored layour.
+    layout: Layout,
     /// The current mode.
     pub mode: Mode,
     /// Whether the editor should quit.
@@ -97,21 +102,31 @@ impl Editor {
             Buffer::default()
         };
 
-        let (columns, rows) = backend.size()?;
+        let mode = Mode::default();
         let gutter = Gutter::new(GUTTER_WIDTH);
         let status_bar = StatusBar::default();
-
-        let viewport = Viewport::new(columns - gutter.width(), rows - status_bar.height());
-        let document = Document::new(buffer, viewport);
-
-        let mut document_manager = DocumentManager::default();
-        document_manager.add(document);
 
         // Initialize commands and keybindings.
         let mut command_registry = CommandRegistry::new();
         register_commands(&mut command_registry);
 
         let command_palette = CommandPalette::new(&command_registry);
+
+        // Calculate the initial layout of the editor.
+        let compositor = Compositor {
+            gutter: &gutter,
+            document: None,
+            status_bar: &status_bar,
+            prompt_manager: &PromptManager::default(),
+            command_palette: &CommandPalette::new(&CommandRegistry::new()),
+        };
+        let layout = compositor.calculate_layout(&mode, &backend);
+
+        // Create a new document and add it to the document manager.
+        let viewport = Viewport::new(layout.document.width, layout.document.height);
+        let document = Document::new(buffer, viewport);
+        let mut document_manager = DocumentManager::default();
+        document_manager.add(document);
 
         Ok(Self {
             document_manager,
@@ -122,14 +137,14 @@ impl Editor {
             command_palette,
             keymap: Keymap::default(),
             prompt_manager: PromptManager::default(),
-            mode: Mode::default(),
+            layout,
+            mode,
             should_quit: false,
         })
     }
 
     /// Opens a new file and loads its contents into the document manager.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        // TODO: Keep track of all open buffers.
         let buffer = Buffer::open_new_or_existing_file(&path)?;
         let (width, height) = self.backend.size()?;
         let viewport = Viewport::new(width, height);
@@ -339,12 +354,18 @@ impl Editor {
     pub fn update(&mut self) -> Result<()> {
         self.status_bar.update();
 
-        // HACK: Update the viewport to match the dimensions of the terminal, _before_ rendering to
-        // avoid borrowing issues. We should instead calculate all the compositor rects here, then
-        // use the document rect to update the viewport.
-        let (width, height) = self.backend.size()?;
+        // Calculate the new layout of the editor.
+        let compositor = Compositor {
+            gutter: &self.gutter,
+            document: Some(self.document_manager.active()),
+            status_bar: &self.status_bar,
+            prompt_manager: &self.prompt_manager,
+            command_palette: &self.command_palette,
+        };
+        self.layout = compositor.calculate_layout(&self.mode, &self.backend);
+
         let active_document = self.document_manager.active_mut();
-        active_document.update_viewport(width, height);
+        active_document.update_viewport(self.layout.document.width, self.layout.document.height);
         active_document.scroll_to_cursor();
         Ok(())
     }
@@ -358,7 +379,7 @@ impl Editor {
         // TODO: Store in editor.
         let compositor = Compositor {
             gutter: &self.gutter,
-            document: self.document_manager.active(),
+            document: Some(self.document_manager.active()),
             status_bar: &self.status_bar,
             prompt_manager: &self.prompt_manager,
             command_palette: &self.command_palette,
@@ -369,7 +390,7 @@ impl Editor {
             mode: &self.mode,
             document: self.document_manager.active(),
         };
-        compositor.render(&mut rendering_context)?;
+        compositor.render(&mut rendering_context, &self.layout)?;
 
         self.backend.show_cursor()?;
         self.backend.flush()?;
