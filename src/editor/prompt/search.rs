@@ -4,7 +4,7 @@ use crate::editor::{
     backend::{self, RenderingBackend},
     document::Document,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
-    renderer::{Rect, Renderable, RenderingContext},
+    renderer::{Rect, Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
 
 #[derive(Debug, Clone)]
@@ -51,17 +51,8 @@ impl Prompt for SearchPrompt {
 }
 
 impl Renderable for SearchPrompt {
-    fn render(
-        &self,
-        _ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
-        backend.move_cursor(rect.col, rect.row)?;
-        backend.clear_line()?;
-
+    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
         let message = format!("search: {}", self.query);
-        backend.write(&message)?;
-        Ok(())
+        viewport.put_span(0, 0, Span::new(&message));
     }
 }

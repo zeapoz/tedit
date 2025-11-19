@@ -1,14 +1,16 @@
 use std::path::Path;
 
 use crate::editor::{
-    backend::{self, RenderingBackend},
+    backend,
     document::{
         buffer::{Buffer, Error},
         cursor::Cursor,
         viewport::Viewport,
     },
     gutter::Gutter,
-    renderer::{Rect, Renderable, RenderingContext},
+    renderer::{
+        Renderable, RenderingContext, frame::Span, viewport::Viewport as RenderingViewport,
+    },
 };
 
 pub mod buffer;
@@ -174,25 +176,17 @@ impl Document {
 }
 
 impl Renderable for Document {
-    fn render(
-        &self,
-        _ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
+    fn render(&self, _ctx: &RenderingContext, mut viewport: RenderingViewport<'_>) {
         // Update viewport to match the dimensions of the given rectangle.
         let start_row = self.viewport.row_offset;
-        for row in rect.rows() {
-            backend.move_cursor(rect.col, row)?;
-
+        for row in 0..viewport.height() {
             let buffer_row = start_row + row;
             let row_visible_chars = self
                 .buffer
                 .row(buffer_row)
                 .map(|r| r.visible_chars(&self.viewport))
                 .unwrap_or_default();
-            backend.write(&row_visible_chars)?;
+            viewport.put_span(0, row, Span::new(&row_visible_chars));
         }
-        Ok(())
     }
 }

@@ -20,7 +20,7 @@ use crate::editor::{
         confirm::ConfirmPrompt,
     },
     renderer::{
-        RenderingContext,
+        Renderer, RenderingContext,
         compositor::Compositor,
         layout::{Layout, LayoutContext},
     },
@@ -79,8 +79,8 @@ pub struct Editor {
     status_bar: StatusBar,
     /// The editor backend.
     backend: EditorBackend,
-    /// The compositor.
-    compositor: Compositor,
+    /// The renderer.
+    renderer: Renderer,
     /// The command registry.
     command_registry: CommandRegistry,
     /// The command palette.
@@ -100,7 +100,7 @@ pub struct Editor {
 impl Editor {
     /// Returns a new editor.
     pub fn new<P: AsRef<Path>>(file: Option<P>) -> Result<Self> {
-        let compositor = Compositor::initialize()?;
+        let renderer = Renderer::initialize()?;
         let backend = EditorBackend;
 
         let buffer = if let Some(path) = file {
@@ -121,13 +121,8 @@ impl Editor {
         let prompt_manager = PromptManager::default();
 
         // Calculate the initial layout of the editor.
-        let layout_context = LayoutContext::new(
-            &mode,
-            &gutter,
-            &status_bar,
-            &prompt_manager,
-            &backend,
-        );
+        let layout_context =
+            LayoutContext::new(&mode, &gutter, &status_bar, &prompt_manager, &backend);
         let layout = Layout::calculate(&layout_context);
 
         // Create a new document and add it to the document manager.
@@ -141,7 +136,7 @@ impl Editor {
             gutter,
             status_bar,
             backend,
-            compositor,
+            renderer,
             command_registry,
             command_palette,
             keymap: Keymap::default(),
@@ -355,7 +350,7 @@ impl Editor {
 
     /// Exits the editor.
     pub fn exit(&mut self) -> Result<()> {
-        self.compositor.deinitialize()?;
+        self.renderer.deinitialize()?;
         Ok(())
     }
 
@@ -376,7 +371,9 @@ impl Editor {
     /// Creates a new rendering context from the editor and calls the renderer.
     pub fn render(&mut self) -> Result<()> {
         let rendering_context = RenderingContext::from(&*self);
-        self.compositor.render(rendering_context, &self.layout)?;
+        let frame = Compositor::compose_frame(&rendering_context, &self.layout);
+        // TODO: Compare frame to previous frame and only render changed cells.
+        self.renderer.render(&frame)?;
         Ok(())
     }
 }

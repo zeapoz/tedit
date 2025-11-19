@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use crate::editor::{
     backend::{self, RenderingBackend},
     prompt::{Prompt, PromptResponse, PromptStatus},
-    renderer::{Rect, Renderable, RenderingContext},
+    renderer::{Rect, Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
 
 #[derive(Debug, Clone)]
@@ -32,17 +32,8 @@ impl Prompt for ConfirmPrompt {
 }
 
 impl Renderable for ConfirmPrompt {
-    fn render(
-        &self,
-        _ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
-        backend.move_cursor(rect.col, rect.row)?;
-        backend.clear_line()?;
-
+    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
         let message = format!("{} [y/n] ", self.message);
-        backend.write(&message)?;
-        Ok(())
+        viewport.put_span(0, 0, Span::new(&message));
     }
 }

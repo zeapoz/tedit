@@ -1,71 +1,44 @@
-use crate::editor::{
-    backend::{self, RenderingBackend},
-    renderer::{Renderable, RenderingContext, layout::Layout},
+use crate::editor::renderer::{
+    Renderable, RenderingContext, frame::Frame, layout::Layout, viewport::Viewport,
 };
 
+// TODO: Implement layers.
 /// A compositor that organizes the rendering of multiple objects on the terminal.
 #[derive(Debug)]
-pub struct Compositor {
-    backend: RenderingBackend,
-}
+pub struct Compositor;
 
 impl Compositor {
-    /// Initializes a new compositor.
-    pub fn initialize() -> Result<Self, backend::Error> {
-        let backend = RenderingBackend::initialize()?;
-        Ok(Self { backend })
-    }
+    /// Composes a frame from the given context and layout.
+    pub fn compose_frame(ctx: &RenderingContext, layout: &Layout) -> Frame {
+        let mut frame = Frame::new(layout.width, layout.height);
 
-    /// deinitialize the compositor.
-    pub fn deinitialize(&mut self) -> Result<(), backend::Error> {
-        self.backend.deinitialize()
-    }
+        let gutter_viewport = Viewport::new(layout.gutter, &mut frame);
+        ctx.gutter.render(ctx, gutter_viewport);
 
-    /// Renders the editor to the terminal.
-    pub fn render(&mut self, ctx: RenderingContext, layout: &Layout) -> Result<(), backend::Error> {
-        self.backend.hide_cursor()?;
-        self.backend.move_cursor(0, 0)?;
-        self.backend.clear_all()?;
-
-        self.render_components(ctx, layout)?;
-
-        self.backend.show_cursor()?;
-        self.backend.flush()?;
-
-        Ok(())
-    }
-
-    /// Renders all componenets in the context to the terminal using the given layout.
-    pub fn render_components(
-        &mut self,
-        ctx: RenderingContext,
-        layout: &Layout,
-    ) -> Result<(), backend::Error> {
-        ctx.gutter.render(&ctx, layout.gutter, &mut self.backend)?;
-        ctx.document
-            .render(&ctx, layout.document, &mut self.backend)?;
+        let document_viewport = Viewport::new(layout.document, &mut frame);
+        ctx.document.render(ctx, document_viewport);
 
         if let Some(rect) = layout.prompt
             && let Some(prompt) = &ctx.prompt
         {
-            prompt.render(&ctx, rect, &mut self.backend)?;
+            let prompt_viewport = Viewport::new(rect, &mut frame);
+            prompt.render(ctx, prompt_viewport);
         } else if let Some(rect) = layout.command_palette {
-            ctx.command_palette
-                .render(&ctx, rect, &mut self.backend)?;
+            let command_palette_viewport = Viewport::new(rect, &mut frame);
+            ctx.command_palette.render(ctx, command_palette_viewport);
         }
 
-        ctx.status_bar
-            .render(&ctx, layout.status_bar, &mut self.backend)?;
+        let status_bar_viewport = Viewport::new(layout.status_bar, &mut frame);
+        ctx.status_bar.render(ctx, status_bar_viewport);
 
-        // Render the cursor last to ensure it is on top of everything else.
         let cursor_position = ctx.document.cursor_position();
-        self.backend.move_cursor(
+        frame.set_cursor_position(
             cursor_position.0.saturating_add(ctx.gutter.width()),
             cursor_position
                 .1
                 .saturating_sub(ctx.document.viewport_row_offset()),
-        )?;
+        );
 
-        Ok(())
+        frame
     }
 }

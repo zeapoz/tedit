@@ -1,7 +1,10 @@
 use crossterm::event::KeyEvent;
 
 use crate::editor::{
-    self, Editor, backend::{self, RenderingBackend}, prompt::{confirm::ConfirmPrompt, search::SearchPrompt}, renderer::{Rect, Renderable, RenderingContext}
+    self, Editor,
+    backend::{self, RenderingBackend},
+    prompt::{confirm::ConfirmPrompt, search::SearchPrompt},
+    renderer::{Rect, Renderable, RenderingContext, viewport::Viewport},
 };
 
 pub mod confirm;
@@ -45,15 +48,10 @@ impl PromptType {
     }
 
     /// Calls the types render method.
-    pub fn render(
-        &self,
-        ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
+    pub fn render(&self, ctx: &RenderingContext, viewport: Viewport<'_>) {
         match self {
-            Self::Confirm(prompt) => prompt.render(ctx, rect, backend),
-            Self::Search(prompt) => prompt.render(ctx, rect, backend),
+            Self::Confirm(prompt) => prompt.render(ctx, viewport),
+            Self::Search(prompt) => prompt.render(ctx, viewport),
         }
     }
 }

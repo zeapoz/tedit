@@ -1,6 +1,6 @@
 use crate::editor::{
-    backend::{self, RenderingBackend},
-    renderer::{Rect, Renderable, RenderingContext},
+    backend,
+    renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -20,15 +20,8 @@ impl Gutter {
 }
 
 impl Renderable for Gutter {
-    fn render(
-        &self,
-        ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
-        for row in rect.rows() {
-            backend.move_cursor(rect.col, row)?;
-
+    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport<'_>) {
+        for row in 0..viewport.height() {
             // Reserve two spaces at the end of the gutter.
             let padding_width = self.width.saturating_sub(2);
             let document_row = ctx.document.viewport_row_offset() + row;
@@ -37,8 +30,8 @@ impl Renderable for Gutter {
                 document_row.saturating_add(1),
                 width = padding_width
             );
-            backend.write(&s)?;
+
+            viewport.put_span(0, row, Span::new(&s));
         }
-        Ok(())
     }
 }

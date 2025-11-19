@@ -1,9 +1,9 @@
 use crossterm::style::Stylize;
 
 use crate::editor::{
-    backend::{self, RenderingBackend},
+    backend,
     command::{Command, CommandArgs, CommandRegistry},
-    renderer::{Rect, Renderable, RenderingContext},
+    renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
 
 /// Information about a command.
@@ -170,25 +170,16 @@ impl CommandPalette {
 }
 
 impl Renderable for CommandPalette {
-    fn render(
-        &self,
-        _ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
+    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
         // Render the query prompt.
-        backend.move_cursor(0, rect.last_row())?;
-        backend.clear_line()?;
-
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
-        backend.write(&text)?;
+        viewport.put_span(0, viewport.height().saturating_sub(1), Span::new(&text));
 
         // Render the command list above the query prompt.
         for i in 0..self.filtered_commands.len() {
             let command = self.filtered_commands.get(i);
             if let Some(command) = command {
-                backend.move_cursor(0, rect.last_row() - i - 1)?;
-                backend.clear_line()?;
+                let row = viewport.height().saturating_sub(i + 1);
 
                 // TODO: Show description somwhere, maybe in the status bar.
                 let text = if i == self.selected_index {
@@ -196,9 +187,8 @@ impl Renderable for CommandPalette {
                 } else {
                     command.name.to_string()
                 };
-                backend.write(&text)?;
+                viewport.put_span(0, row, Span::new(&text));
             }
         }
-        Ok(())
     }
 }

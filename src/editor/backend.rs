@@ -19,7 +19,7 @@ pub struct EditorBackend;
 impl EditorBackend {
     /// Returns the size of the terminal viewport.
     pub fn size(&self) -> Result<(usize, usize)> {
-        let (cols, rows) = crossterm::terminal::size()?;
+        let (cols, rows) = terminal::size()?;
         Ok((cols as usize, rows as usize))
     }
 
@@ -45,7 +45,6 @@ impl RenderingBackend {
             terminal::EnterAlternateScreen,
             event::EnableMouseCapture,
             cursor::MoveTo(0, 0),
-            terminal::Clear(ClearType::All),
         )?;
         Ok(Self { stdout })
     }
@@ -73,9 +72,14 @@ impl RenderingBackend {
         Ok(())
     }
 
+    /// Writes a character to the terminal.
+    pub fn write_char(&mut self, c: char) -> Result<()> {
+        write!(self.stdout, "{c}")?;
+        Ok(())
+    }
+
     /// Writes text to the terminal.
     pub fn write(&mut self, s: &str) -> Result<()> {
-        // TODO: Instead of writing directly, render to a frame buffer and diff with previous frame.
         write!(self.stdout, "{s}")?;
         Ok(())
     }

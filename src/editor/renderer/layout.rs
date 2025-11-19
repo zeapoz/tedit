@@ -45,6 +45,8 @@ impl<'a> From<&'a Editor> for LayoutContext<'a> {
 /// Represents the layout of the editor, the container of all other components.
 #[derive(Debug)]
 pub struct Layout {
+    pub width: usize,
+    pub height: usize,
     pub gutter: Rect,
     pub document: Rect,
     pub status_bar: Rect,
@@ -82,6 +84,8 @@ impl Layout {
             (*ctx.mode == Mode::Command).then(|| Rect::new(0, 0, width, height.saturating_sub(1)));
 
         Layout {
+            width,
+            height,
             gutter,
             document,
             status_bar,

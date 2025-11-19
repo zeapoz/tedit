@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::editor::{
     backend::{self, RenderingBackend},
-    renderer::{Rect, Renderable, RenderingContext},
+    renderer::{Rect, Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
 
 #[derive(Debug, Clone)]
@@ -88,21 +88,15 @@ impl Default for StatusBar {
 }
 
 impl Renderable for StatusBar {
-    fn render(
-        &self,
-        ctx: &RenderingContext,
-        rect: Rect,
-        backend: &mut RenderingBackend,
-    ) -> Result<(), backend::Error> {
-        backend.move_cursor(rect.col, rect.row)?;
-
+    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport<'_>) {
         let mode = ctx.mode.to_string();
         let file_name = ctx.document.file_name().bold();
 
+        // TODO: Bold style.
         let dirty_marker = if ctx.document.is_dirty() {
-            "*".bold().to_string()
+            "*".to_string()
         } else {
-            " ".into()
+            " ".to_string()
         };
 
         let (cursor_col, cursor_row) = ctx.document.cursor_position();
@@ -113,7 +107,7 @@ impl Renderable for StatusBar {
             self.message.as_ref().map(|m| m.text()).unwrap_or_default()
         );
 
-        backend.write(&status)?;
-        Ok(())
+        // TODO: Put line (vec of spans).
+        viewport.put_span(0, 0, Span::new(&status));
     }
 }
