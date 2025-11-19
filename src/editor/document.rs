@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use crate::editor::{
-    backend,
     document::{
         buffer::{Buffer, Error},
         cursor::Cursor,

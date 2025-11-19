@@ -1,7 +1,4 @@
-use crate::editor::{
-    backend,
-    renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
-};
+use crate::editor::renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Gutter {

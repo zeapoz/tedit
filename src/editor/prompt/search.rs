@@ -1,10 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
-    backend::{self, RenderingBackend},
     document::Document,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
-    renderer::{Rect, Renderable, RenderingContext, frame::Span, viewport::Viewport},
+    renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
 
 #[derive(Debug, Clone)]

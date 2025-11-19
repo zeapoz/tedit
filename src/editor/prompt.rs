@@ -2,9 +2,8 @@ use crossterm::event::KeyEvent;
 
 use crate::editor::{
     self, Editor,
-    backend::{self, RenderingBackend},
     prompt::{confirm::ConfirmPrompt, search::SearchPrompt},
-    renderer::{Rect, Renderable, RenderingContext, viewport::Viewport},
+    renderer::{Renderable, RenderingContext, viewport::Viewport},
 };
 
 pub mod confirm;

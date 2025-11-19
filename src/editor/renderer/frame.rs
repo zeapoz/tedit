@@ -1,3 +1,5 @@
+pub mod diff;
+
 /// A string with a particular style.
 pub struct Span<'a> {
     pub str: &'a str,
@@ -28,10 +30,20 @@ impl<'a> Span<'a> {
 }
 
 /// A frame is a rectangular region of the terminal.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cell {
     pub char: char,
     pub style: Style,
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            // Use a space as the default character to overwrite the previous character.
+            char: ' ',
+            style: Default::default(),
+        }
+    }
 }
 
 impl Cell {

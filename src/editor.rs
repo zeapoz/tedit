@@ -372,8 +372,7 @@ impl Editor {
     pub fn render(&mut self) -> Result<()> {
         let rendering_context = RenderingContext::from(&*self);
         let frame = Compositor::compose_frame(&rendering_context, &self.layout);
-        // TODO: Compare frame to previous frame and only render changed cells.
-        self.renderer.render(&frame)?;
+        self.renderer.render(frame)?;
         Ok(())
     }
 }

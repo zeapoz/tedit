@@ -1,7 +1,6 @@
 use crossterm::style::Stylize;
 
 use crate::editor::{
-    backend,
     command::{Command, CommandArgs, CommandRegistry},
     renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
 };
@@ -179,7 +178,7 @@ impl Renderable for CommandPalette {
         for i in 0..self.filtered_commands.len() {
             let command = self.filtered_commands.get(i);
             if let Some(command) = command {
-                let row = viewport.height().saturating_sub(i + 1);
+                let row = viewport.height().saturating_sub(i + 2);
 
                 // TODO: Show description somwhere, maybe in the status bar.
                 let text = if i == self.selected_index {
