@@ -3,7 +3,11 @@ use crossterm::event::{KeyCode, KeyEvent};
 use crate::editor::{
     document::Document,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
-    renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
+    renderer::{
+        Renderable, RenderingContext,
+        frame::{Line, Span},
+        viewport::Viewport,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -52,6 +56,6 @@ impl Prompt for SearchPrompt {
 impl Renderable for SearchPrompt {
     fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
         let message = format!("search: {}", self.query);
-        viewport.put_span(0, 0, Span::new(&message));
+        viewport.put_line(0, Line::new(viewport.width(), vec![Span::new(&message)]));
     }
 }

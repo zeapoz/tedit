@@ -22,7 +22,7 @@ use crate::editor::{
     renderer::{
         Renderer, RenderingContext,
         compositor::Compositor,
-        layout::{Layout, LayoutContext},
+        layout::{Layout, LayoutContext}, style::Color,
     },
     status_bar::{Message, StatusBar},
 };
@@ -58,6 +58,15 @@ pub enum Mode {
     Insert,
     /// A mode for running commands.
     Command,
+}
+
+impl From<Mode> for Color {
+    fn from(value: Mode) -> Self {
+        match value {
+            Mode::Insert => Color::Green,
+            Mode::Command => Color::Blue,
+        }
+    }
 }
 
 impl fmt::Display for Mode {

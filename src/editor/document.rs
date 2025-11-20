@@ -8,7 +8,9 @@ use crate::editor::{
     },
     gutter::Gutter,
     renderer::{
-        Renderable, RenderingContext, frame::Span, viewport::Viewport as RenderingViewport,
+        Renderable, RenderingContext,
+        frame::{Line, Span},
+        viewport::Viewport as RenderingViewport,
     },
 };
 
@@ -185,7 +187,10 @@ impl Renderable for Document {
                 .row(buffer_row)
                 .map(|r| r.visible_chars(&self.viewport))
                 .unwrap_or_default();
-            viewport.put_span(0, row, Span::new(&row_visible_chars));
+            viewport.put_line(
+                row,
+                Line::new(viewport.width(), vec![Span::new(&row_visible_chars)]),
+            );
         }
     }
 }

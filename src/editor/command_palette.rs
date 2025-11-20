@@ -1,8 +1,11 @@
-use crossterm::style::Stylize;
-
 use crate::editor::{
     command::{Command, CommandArgs, CommandRegistry},
-    renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport},
+    renderer::{
+        Renderable, RenderingContext,
+        frame::{Line, Span},
+        style::Style,
+        viewport::Viewport,
+    },
 };
 
 /// Information about a command.
@@ -172,7 +175,10 @@ impl Renderable for CommandPalette {
     fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
         // Render the query prompt.
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
-        viewport.put_span(0, viewport.height().saturating_sub(1), Span::new(&text));
+        viewport.put_line(
+            viewport.height().saturating_sub(1),
+            Line::new(viewport.width(), vec![Span::new(&text)]),
+        );
 
         // Render the command list above the query prompt.
         for i in 0..self.filtered_commands.len() {
@@ -181,12 +187,18 @@ impl Renderable for CommandPalette {
                 let row = viewport.height().saturating_sub(i + 2);
 
                 // TODO: Show description somwhere, maybe in the status bar.
-                let text = if i == self.selected_index {
-                    command.name.bold().to_string()
+                let style = if i == self.selected_index {
+                    Style::new().bold()
                 } else {
-                    command.name.to_string()
+                    Style::default()
                 };
-                viewport.put_span(0, row, Span::new(&text));
+                viewport.put_line(
+                    row,
+                    Line::new(
+                        viewport.width(),
+                        vec![Span::new(command.name).with_style(style)],
+                    ),
+                );
             }
         }
     }

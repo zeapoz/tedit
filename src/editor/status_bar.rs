@@ -1,6 +1,11 @@
 use std::time::{Duration, Instant};
 
-use crate::editor::renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport};
+use crate::editor::renderer::{
+    Renderable, RenderingContext,
+    frame::{Line, Span},
+    style::Style,
+    viewport::Viewport,
+};
 
 #[derive(Debug, Clone)]
 pub struct Message {
@@ -85,24 +90,33 @@ impl Default for StatusBar {
 
 impl Renderable for StatusBar {
     fn render(&self, ctx: &RenderingContext, mut viewport: Viewport<'_>) {
-        let mode = ctx.mode.to_string();
-        let file_name = ctx.document.file_name();
+        let mode = format!(" {} ", ctx.mode);
+        let mode_style = Style::new().bold().bg(ctx.mode.into());
 
-        // TODO: Bold style.
-        let dirty_marker = if ctx.document.is_dirty() {
-            "*".to_string()
+        let file = ctx.document.file_name();
+        let file_style = if ctx.document.is_dirty() {
+            Style::new().bold().underline()
         } else {
-            " ".to_string()
+            Style::new().bold()
         };
 
         let (cursor_col, cursor_row) = ctx.document.cursor_position();
         let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
 
-        let status = format!(
-            "{mode} {file_name}{dirty_marker} {cursor_position} {}",
-            self.message.as_ref().map(|m| m.text()).unwrap_or_default()
-        );
+        let message = self.message.as_ref().map(|m| m.text()).unwrap_or_default();
 
-        viewport.put_span(0, 0, Span::new(&status));
+        viewport.put_line(
+            0,
+            Line::new(
+                viewport.width(),
+                vec![
+                    Span::new(&mode).with_style(mode_style),
+                    Span::new(&file).with_style(file_style),
+                    Span::new(&cursor_position),
+                    Span::new(message),
+                ],
+            )
+            .with_separator(" "),
+        );
     }
 }

@@ -1,6 +1,6 @@
 use crate::editor::renderer::{
     Rect,
-    frame::{Cell, Frame, Span},
+    frame::{Cell, Frame, Line, Span},
 };
 
 /// A viewport of a rectangular region of the terminal that can be written to.
@@ -30,6 +30,15 @@ impl<'a> Viewport<'a> {
         let cells = span.as_cells();
         for (i, cell) in cells.into_iter().enumerate() {
             self.put_cell(col + i, row, cell);
+        }
+    }
+
+    /// Puts a new line in the given position. If the position is out of bounds, it will be
+    /// ignored.
+    pub fn put_line(&mut self, row: usize, line: Line) {
+        let cells = line.as_cells();
+        for (i, cell) in cells.into_iter().enumerate() {
+            self.put_cell(i, row, cell);
         }
     }
 

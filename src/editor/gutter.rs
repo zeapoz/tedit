@@ -1,4 +1,6 @@
-use crate::editor::renderer::{Renderable, RenderingContext, frame::Span, viewport::Viewport};
+use crate::editor::renderer::{
+    Renderable, RenderingContext, frame::{Line, Span}, style::{Color, Style}, viewport::Viewport
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Gutter {
@@ -18,6 +20,7 @@ impl Gutter {
 
 impl Renderable for Gutter {
     fn render(&self, ctx: &RenderingContext, mut viewport: Viewport<'_>) {
+        let cursor_row = ctx.document.cursor_position().1;
         for row in 0..viewport.height() {
             // Reserve two spaces at the end of the gutter.
             let padding_width = self.width.saturating_sub(2);
@@ -28,7 +31,16 @@ impl Renderable for Gutter {
                 width = padding_width
             );
 
-            viewport.put_span(0, row, Span::new(&s));
+            let style = if cursor_row == row {
+                Style::new().bold().fg(Color::DarkYellow)
+            } else {
+                Style::default()
+            };
+
+            viewport.put_line(
+                row,
+                Line::new(viewport.width(), vec![Span::new(&s)]).with_style(style),
+            );
         }
     }
 }

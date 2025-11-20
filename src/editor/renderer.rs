@@ -6,7 +6,7 @@ use crate::editor::{
     gutter::Gutter,
     prompt::PromptType,
     renderer::{
-        frame::{Frame, diff::FrameDiff},
+        frame::{Cell, Frame, diff::FrameDiff},
         viewport::Viewport,
     },
     status_bar::StatusBar,
@@ -18,6 +18,7 @@ pub mod compositor;
 pub mod frame;
 pub mod layout;
 pub mod rect;
+pub mod style;
 pub mod viewport;
 
 // TODO: Make this cheaper to create. Instead of cloning everything, just clone the state needed
@@ -93,7 +94,7 @@ impl Renderer {
             for (row, cells) in frame.rows().enumerate() {
                 self.backend.move_cursor(0, row)?;
                 for cell in cells {
-                    self.backend.write_char(cell.char)?;
+                    self.render_cell(cell)?;
                 }
             }
         }
@@ -114,12 +115,14 @@ impl Renderer {
     fn render_frame_diff(&mut self, diff: FrameDiff) -> Result<(), backend::Error> {
         let mut current_row = None;
         let mut last_col = 0;
-        let mut buffer = String::new();
+        let mut buffer = Vec::new();
         for diff_cell in &diff.cells {
             if Some(diff_cell.row) != current_row {
                 // Flush buffer if we moved to a new row.
                 if !buffer.is_empty() {
-                    self.backend.write(&buffer)?;
+                    for cell in &buffer {
+                        self.render_cell(cell)?;
+                    }
                     buffer.clear();
                 }
                 // Move cursor to start of the new row.
@@ -131,20 +134,34 @@ impl Renderer {
             if diff_cell.col > last_col + 1 {
                 // Flush buffer if non-adjacent.
                 if !buffer.is_empty() {
-                    self.backend.write(&buffer)?;
+                    for cell in &buffer {
+                        self.render_cell(cell)?;
+                    }
                     buffer.clear();
                 }
                 self.backend.move_cursor(diff_cell.col, diff_cell.row)?;
             }
 
-            buffer.push(diff_cell.cell.char);
+            buffer.push(*diff_cell.cell);
             last_col = diff_cell.col;
         }
 
         // Flush last buffer
         if !buffer.is_empty() {
-            self.backend.write(&buffer)?;
+            for cell in &buffer {
+                self.render_cell(cell)?;
+            }
         }
+        Ok(())
+    }
+
+    /// Renders a single cell to the terminal.
+    fn render_cell(&mut self, cell: &Cell) -> Result<(), backend::Error> {
+        // TODO: Optimize calls to `set_style` by diffing with previous and only queuing the
+        // changes.
+        let style = cell.style.resolve();
+        self.backend.set_style(style)?;
+        self.backend.write_char(cell.char)?;
         Ok(())
     }
 }

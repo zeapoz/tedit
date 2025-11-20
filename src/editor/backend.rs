@@ -4,8 +4,11 @@ use crossterm::{
     cursor,
     event::{self, Event},
     queue,
+    style::{self, Attribute},
     terminal::{self, ClearType},
 };
+
+use crate::editor::renderer::style::{Color, FontIntensity, ResolvedStyle};
 
 pub type Error = io::Error;
 
@@ -84,6 +87,18 @@ impl RenderingBackend {
         Ok(())
     }
 
+    /// Sets the bold style.
+    pub fn set_style(&mut self, style: ResolvedStyle) -> Result<()> {
+        queue!(
+            self.stdout,
+            style::SetForegroundColor(style.fg.into()),
+            style::SetBackgroundColor(style.bg.into()),
+        )?;
+
+        self.write(&style.to_string())?;
+        Ok(())
+    }
+
     /// Flushes the terminal output.
     pub fn flush(&mut self) -> Result<()> {
         self.stdout.flush()?;
@@ -108,5 +123,59 @@ impl RenderingBackend {
     pub fn show_cursor(&mut self) -> Result<()> {
         queue!(self.stdout, cursor::Show)?;
         Ok(())
+    }
+}
+
+impl From<Color> for crossterm::style::Color {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Reset => style::Color::Reset,
+            Color::Black => style::Color::Black,
+            Color::DarkGrey => style::Color::DarkGrey,
+            Color::Red => style::Color::Red,
+            Color::DarkRed => style::Color::DarkRed,
+            Color::Green => style::Color::Green,
+            Color::DarkGreen => style::Color::DarkGreen,
+            Color::Yellow => style::Color::Yellow,
+            Color::DarkYellow => style::Color::DarkYellow,
+            Color::Blue => style::Color::Blue,
+            Color::DarkBlue => style::Color::DarkBlue,
+            Color::Magenta => style::Color::Magenta,
+            Color::DarkMagenta => style::Color::DarkMagenta,
+            Color::Cyan => style::Color::Cyan,
+            Color::DarkCyan => style::Color::DarkCyan,
+            Color::White => style::Color::White,
+            Color::Grey => style::Color::Grey,
+            Color::Rgb { r, g, b } => style::Color::Rgb { r, g, b },
+            Color::AnsiValue(v) => style::Color::AnsiValue(v),
+        }
+    }
+}
+
+impl From<FontIntensity> for Attribute {
+    fn from(value: FontIntensity) -> Self {
+        match value {
+            FontIntensity::Normal => Attribute::NormalIntensity,
+            FontIntensity::Bold => Attribute::Bold,
+            FontIntensity::Dim => Attribute::Dim,
+        }
+    }
+}
+
+// TODO: Queue as a command instead.
+#[allow(clippy::to_string_trait_impl)]
+impl ToString for ResolvedStyle {
+    fn to_string(&self) -> String {
+        let mut s = String::new();
+
+        let intensity: Attribute = self.intensity.into();
+        s.push_str(&intensity.to_string());
+
+        if self.underline {
+            s.push_str(&Attribute::Underlined.to_string());
+        } else {
+            s.push_str(&Attribute::NoUnderline.to_string());
+        }
+        s
     }
 }
