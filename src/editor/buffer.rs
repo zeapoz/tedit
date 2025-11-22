@@ -1,12 +1,15 @@
 use std::{
     fs, io, mem,
+    ops::{Deref, DerefMut},
     path::{Path, PathBuf},
+    sync::{Arc, RwLock},
 };
 
 use thiserror::Error;
 
-use crate::editor::document::{buffer::row::Row, cursor::Cursor};
+use crate::editor::{buffer::row::Row, pane::cursor::Cursor};
 
+pub mod manager;
 pub mod row;
 
 #[derive(Debug, Error)]
@@ -25,6 +28,32 @@ pub enum SaveError {
     FileAlreadyExists(PathBuf),
     #[error(transparent)]
     IoError(#[from] io::Error),
+}
+
+#[derive(Debug, Clone)]
+pub struct BufferEntry {
+    pub id: usize,
+    pub buffer: Arc<RwLock<Buffer>>,
+}
+
+impl BufferEntry {
+    pub fn new(id: usize, buffer: Arc<RwLock<Buffer>>) -> Self {
+        BufferEntry { id, buffer }
+    }
+}
+
+impl Deref for BufferEntry {
+    type Target = Arc<RwLock<Buffer>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buffer
+    }
+}
+
+impl DerefMut for BufferEntry {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buffer
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,7 +155,7 @@ impl Buffer {
 
     /// Finds the next occurrence of the given string in the buffer and returns its position or
     /// `None` if not found.
-    pub fn find_next(&mut self, s: &str, cursor: &Cursor) -> Option<(usize, usize)> {
+    pub fn find_next(&self, s: &str, cursor: &Cursor) -> Option<(usize, usize)> {
         self.rows
             .iter()
             .enumerate()

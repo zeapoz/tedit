@@ -2,8 +2,7 @@ use crate::editor::{
     Editor, Mode,
     backend::{self, RenderingBackend},
     command_palette::CommandPalette,
-    document::Document,
-    gutter::Gutter,
+    pane::manager::PaneManager,
     prompt::PromptType,
     renderer::{
         frame::{Cell, Frame, diff::FrameDiff},
@@ -26,8 +25,7 @@ pub mod viewport;
 /// A context for rendering objects.
 pub struct RenderingContext {
     pub mode: Mode,
-    pub gutter: Gutter,
-    pub document: Document,
+    pub pane_manager: PaneManager,
     pub status_bar: StatusBar,
     pub prompt: Option<PromptType>,
     pub command_palette: CommandPalette,
@@ -43,8 +41,7 @@ impl<'a> From<&'a Editor> for RenderingContext {
 
         Self {
             mode: value.mode,
-            gutter: value.gutter,
-            document: value.document_manager.active().clone(),
+            pane_manager: value.pane_manager.clone(),
             status_bar: value.status_bar.clone(),
             prompt,
             command_palette: value.command_palette.clone(),

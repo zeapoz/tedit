@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
-    document::Document,
+    pane::Pane,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
     renderer::{
         Renderable, RenderingContext,
@@ -14,15 +14,15 @@ use crate::editor::{
 pub struct SearchPrompt {
     query: String,
     // TODO: Should not be copied.
-    /// The document to search within.
-    document: Document,
+    /// The pane to search within.
+    pane: Pane,
 }
 
 impl SearchPrompt {
-    pub fn new(document: Document) -> Self {
+    pub fn new(pane: Pane) -> Self {
         Self {
             query: String::new(),
-            document,
+            pane,
         }
     }
 }
@@ -45,7 +45,7 @@ impl Prompt for SearchPrompt {
     }
 
     fn on_changed(&mut self) -> PromptAction {
-        if let Some((col, row)) = self.document.find_next(&self.query) {
+        if let Some((col, row)) = self.pane.find_next(&self.query) {
             PromptAction::MoveCursor { col, row }
         } else {
             PromptAction::None
@@ -54,7 +54,7 @@ impl Prompt for SearchPrompt {
 }
 
 impl Renderable for SearchPrompt {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
+    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport) {
         let message = format!("search: {}", self.query);
         viewport.put_line(0, Line::new(viewport.width(), vec![Span::new(&message)]));
     }

@@ -35,7 +35,7 @@ impl Prompt for ConfirmPrompt {
 }
 
 impl Renderable for ConfirmPrompt {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
+    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport) {
         let message = format!("{} [y/n] ", self.message);
         viewport.put_line(0, Line::new(viewport.width(), vec![Span::new(&message)]));
     }

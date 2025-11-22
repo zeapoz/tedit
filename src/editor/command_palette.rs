@@ -172,7 +172,7 @@ impl CommandPalette {
 }
 
 impl Renderable for CommandPalette {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport<'_>) {
+    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport) {
         // Render the query prompt.
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
         viewport.put_line(

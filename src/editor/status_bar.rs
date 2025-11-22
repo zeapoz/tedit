@@ -89,18 +89,19 @@ impl Default for StatusBar {
 }
 
 impl Renderable for StatusBar {
-    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport<'_>) {
+    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport) {
         let mode = format!(" {} ", ctx.mode);
         let mode_style = Style::new().bold().bg(ctx.mode.into());
 
-        let file = ctx.document.file_name();
-        let file_style = if ctx.document.is_dirty() {
+        let active_pane = ctx.pane_manager.active();
+        let file = active_pane.file_name();
+        let file_style = if active_pane.is_dirty() {
             Style::new().bold().underline()
         } else {
             Style::new().bold()
         };
 
-        let (cursor_col, cursor_row) = ctx.document.cursor_position();
+        let (cursor_col, cursor_row) = active_pane.cursor_position();
         let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
 
         let message = self.message.as_ref().map(|m| m.text()).unwrap_or_default();

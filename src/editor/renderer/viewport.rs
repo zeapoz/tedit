@@ -1,17 +1,19 @@
+use std::cell::RefCell;
+
 use crate::editor::renderer::{
     Rect,
     frame::{Cell, Frame, Line, Span},
 };
 
 /// A viewport of a rectangular region of the terminal that can be written to.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Viewport<'a> {
     rect: Rect,
-    frame: &'a mut Frame,
+    frame: &'a RefCell<Frame>,
 }
 
 impl<'a> Viewport<'a> {
-    pub fn new(rect: Rect, frame: &'a mut Frame) -> Self {
+    pub fn new(rect: Rect, frame: &'a RefCell<Frame>) -> Self {
         Self { rect, frame }
     }
 
@@ -22,6 +24,7 @@ impl<'a> Viewport<'a> {
             return;
         }
         self.frame
+            .borrow_mut()
             .put_cell(col + self.rect.col, row + self.rect.row, cell);
     }
 
@@ -40,6 +43,37 @@ impl<'a> Viewport<'a> {
         for (i, cell) in cells.into_iter().enumerate() {
             self.put_cell(i, row, cell);
         }
+    }
+
+    /// Returns a sub rect of the viewport. Returns `None` if the given rect is not a valid sub
+    /// rect of this viewport.
+    pub fn sub_rect(&mut self, rect: Rect) -> Option<Viewport<'a>> {
+        if rect.col < self.rect.col
+            || rect.row < self.rect.row
+            || rect.col + rect.width > self.rect.col + self.rect.width
+            || rect.row + rect.height > self.rect.row + self.rect.height
+        {
+            return None;
+        }
+
+        Some(Viewport::new(rect, self.frame))
+    }
+
+    /// Splits the viewport in two and returns the left and right viewports. Calculates the parts
+    /// based on the ratio given.
+    pub fn split_horizontally(&mut self, ratio: f32) -> (Viewport<'a>, Viewport<'a>) {
+        let (left, right) = self.rect.split_vertically(ratio);
+        let left = Viewport::new(left, self.frame);
+        let right = Viewport::new(right, self.frame);
+        (left, right)
+    }
+
+    /// Splits the viewport in two and returns the left and right viewports.
+    pub fn split_horizontally_exact(&mut self, col: usize) -> (Viewport<'a>, Viewport<'a>) {
+        let (left, right) = self.rect.split_vertically_exact(col);
+        let left = Viewport::new(left, self.frame);
+        let right = Viewport::new(right, self.frame);
+        (left, right)
     }
 
     /// Returns the width of the viewport.

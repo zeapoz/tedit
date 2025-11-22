@@ -1,10 +1,25 @@
 use crate::editor::renderer::{
-    Renderable, RenderingContext, frame::{Line, Span}, style::{Color, Style}, viewport::Viewport
+    Renderable, RenderingContext,
+    frame::{Line, Span},
+    style::{Color, Style},
+    viewport::Viewport,
 };
+
+// TODO: Make this adapt to the current buffer/be configurable.
+/// The width of the gutter.
+const GUTTER_WIDTH: usize = 6;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Gutter {
     width: usize,
+}
+
+impl Default for Gutter {
+    fn default() -> Self {
+        Self {
+            width: GUTTER_WIDTH,
+        }
+    }
 }
 
 impl Gutter {
@@ -19,15 +34,16 @@ impl Gutter {
 }
 
 impl Renderable for Gutter {
-    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport<'_>) {
-        let cursor_row = ctx.document.cursor_position().1;
+    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport) {
+        let active_pane = ctx.pane_manager.active();
+        let cursor_row = active_pane.cursor_position().1;
         for row in 0..viewport.height() {
             // Reserve two spaces at the end of the gutter.
             let padding_width = self.width.saturating_sub(2);
-            let document_row = ctx.document.viewport_row_offset() + row;
+            let pane_row = active_pane.viewport.row_offset + row;
             let s = format!(
                 "{:>width$}  ",
-                document_row.saturating_add(1),
+                pane_row.saturating_add(1),
                 width = padding_width
             );
 

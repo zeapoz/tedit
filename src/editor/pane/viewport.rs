@@ -1,4 +1,4 @@
-use crate::editor::{document::cursor::Cursor, gutter::Gutter};
+use crate::editor::pane::cursor::Cursor;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Viewport {
@@ -53,14 +53,6 @@ impl Viewport {
     pub fn update_size(&mut self, width: usize, height: usize) {
         self.width = width;
         self.height = height;
-    }
-
-    /// Returns the logical position from a position on the screen.
-    pub fn screen_position(&mut self, col: usize, row: usize, gutter: &Gutter) -> (usize, usize) {
-        (
-            self.col_offset + col - gutter.width(),
-            self.row_offset + row,
-        )
     }
 
     /// Return the width of the viewport.

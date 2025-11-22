@@ -47,7 +47,7 @@ impl PromptType {
     }
 
     /// Calls the types render method.
-    pub fn render(&self, ctx: &RenderingContext, viewport: Viewport<'_>) {
+    pub fn render(&self, ctx: &RenderingContext, viewport: Viewport) {
         match self {
             Self::Confirm(prompt) => prompt.render(ctx, viewport),
             Self::Search(prompt) => prompt.render(ctx, viewport),

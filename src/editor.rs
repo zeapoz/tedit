@@ -5,16 +5,11 @@ use thiserror::Error;
 
 use crate::editor::{
     backend::EditorBackend,
+    buffer::manager::BufferManager,
     command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
-    document::{
-        Document,
-        buffer::{self, Buffer},
-        manager::DocumentManager,
-        viewport::Viewport,
-    },
-    gutter::Gutter,
     keymap::Keymap,
+    pane::{manager::PaneManager, viewport::Viewport},
     prompt::{
         PromptAction, PromptManager, PromptResponse, PromptStatus, PromptType,
         confirm::ConfirmPrompt,
@@ -22,24 +17,21 @@ use crate::editor::{
     renderer::{
         Renderer, RenderingContext,
         compositor::Compositor,
-        layout::{Layout, LayoutContext}, style::Color,
+        layout::{Layout, LayoutContext},
+        style::Color,
     },
     status_bar::{Message, StatusBar},
 };
 
 pub mod backend;
+mod buffer;
 mod command;
 mod command_palette;
-mod document;
-mod gutter;
 mod keymap;
+mod pane;
 mod prompt;
 mod renderer;
 mod status_bar;
-
-// TODO: Make this adapt to the current buffer/be configurable.
-/// The width of the gutter.
-const GUTTER_WIDTH: usize = 6;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -80,10 +72,10 @@ impl fmt::Display for Mode {
 }
 
 pub struct Editor {
-    /// The document manager.
-    document_manager: DocumentManager,
-    /// The gutter.
-    gutter: Gutter,
+    /// The buffer manager.
+    buffer_manager: BufferManager,
+    /// The pane manager.
+    pane_manager: PaneManager,
     /// The status bar.
     status_bar: StatusBar,
     /// The editor backend.
@@ -112,14 +104,15 @@ impl Editor {
         let renderer = Renderer::initialize()?;
         let backend = EditorBackend;
 
+        // Open a buffer via the buffer manager.
+        let mut buffer_manager = BufferManager::default();
         let buffer = if let Some(path) = file {
-            Buffer::open_new_or_existing_file(path).unwrap_or_default()
+            buffer_manager.open_new_or_existing_file(path)?
         } else {
-            Buffer::default()
+            buffer_manager.open_empty_file()
         };
 
         let mode = Mode::default();
-        let gutter = Gutter::new(GUTTER_WIDTH);
         let status_bar = StatusBar::default();
 
         // Initialize commands and keybindings.
@@ -130,19 +123,17 @@ impl Editor {
         let prompt_manager = PromptManager::default();
 
         // Calculate the initial layout of the editor.
-        let layout_context =
-            LayoutContext::new(&mode, &gutter, &status_bar, &prompt_manager, &backend);
+        let layout_context = LayoutContext::new(&mode, &status_bar, &prompt_manager, &backend);
         let layout = Layout::calculate(&layout_context);
 
-        // Create a new document and add it to the document manager.
-        let viewport = Viewport::new(layout.document.width, layout.document.height);
-        let document = Document::new(buffer, viewport);
-        let mut document_manager = DocumentManager::default();
-        document_manager.add(document);
+        // Create a new pane and add it to the pane manager.
+        let viewport = Viewport::new(layout.pane_manager.width, layout.pane_manager.height);
+        let mut pane_manager = PaneManager::new(layout.pane_manager);
+        pane_manager.open_pane(buffer, viewport);
 
         Ok(Self {
-            document_manager,
-            gutter,
+            buffer_manager,
+            pane_manager,
             status_bar,
             backend,
             renderer,
@@ -156,12 +147,14 @@ impl Editor {
         })
     }
 
-    /// Opens a new file and loads its contents into the document manager.
+    /// Opens a new file and loads its contents into the buffer manager and the pane manager.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        let buffer = Buffer::open_new_or_existing_file(&path)?;
+        let buffer = self.buffer_manager.open_new_or_existing_file(path)?;
+
+        // TODO: Pane manager sets viewport.
         let (width, height) = self.backend.size()?;
         let viewport = Viewport::new(width, height);
-        self.document_manager.add(Document::new(buffer, viewport));
+        self.pane_manager.open_pane(buffer, viewport);
         Ok(())
     }
 
@@ -204,7 +197,7 @@ impl Editor {
                         }
                     }
                 } else if let KeyCode::Char(c) = event.code {
-                    self.document_manager.active_mut().insert_char(c);
+                    self.pane_manager.active_mut().insert_char(c);
                 }
             }
             Event::Mouse(MouseEvent {
@@ -213,11 +206,11 @@ impl Editor {
                 row,
                 ..
             }) => {
-                self.document_manager.active_mut().click(
-                    column as usize,
-                    row as usize,
-                    &self.gutter,
-                );
+                // TODO: Implement a UI layer to map screen coordinates to components, so we can
+                // redirect mouse events to the correct component.
+                self.pane_manager
+                    .active_mut()
+                    .click(column as usize, row as usize);
             }
             _ => {}
         }
@@ -261,7 +254,7 @@ impl Editor {
                 PromptStatus::Changed => {
                     let action = active.prompt.on_changed();
                     if let PromptAction::MoveCursor { col, row } = action {
-                        self.document_manager.active_mut().move_cursor_to(col, row);
+                        self.pane_manager.active_mut().move_cursor_to(col, row);
                     }
                 }
                 PromptStatus::Done(response) => {
@@ -292,7 +285,7 @@ impl Editor {
     }
 
     /// Saves the active buffer.
-    pub fn save_active_document<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
+    pub fn save_active_buffer<P: AsRef<Path>>(&mut self, path: Option<P>) -> Result<()> {
         let path = path.map(|p| p.as_ref().to_path_buf());
 
         // It a path was given, attempt to save the buffer to that path, prompting to overwrite if
@@ -300,7 +293,7 @@ impl Editor {
         if let Some(path) = path {
             // TODO: Use eyre to handle errors instead of long matches.
             if let Err(buffer::Error::SaveError(buffer::SaveError::FileAlreadyExists(_))) =
-                self.document_manager.active_mut().save_as(&path, false)
+                self.pane_manager.active_mut().save_as(&path, false)
             {
                 self.prompt_manager.show_prompt(
                     PromptType::Confirm(ConfirmPrompt::new(
@@ -308,52 +301,60 @@ impl Editor {
                     )),
                     move |editor, response| {
                         if response == PromptResponse::Yes {
-                            editor.document_manager.active_mut().save_as(&path, true)?;
+                            editor.pane_manager.active_mut().save_as(&path, true)?;
                         }
                         Ok(())
                     },
                 )
             }
         } else {
-            self.document_manager.active_mut().save()?;
+            self.pane_manager.active_mut().save()?;
         }
 
         Ok(())
     }
 
-    /// Saves all open documents.
-    pub fn save_all_open_documents(&mut self) -> Result<()> {
-        for document in self.document_manager.iter_mut() {
-            document.save()?;
-        }
-        Ok(())
-    }
-
-    /// Closes the active document. If the document is dirty, prompts the user to save the document
+    /// Closes the active pane. If the pane is dirty, prompts the user to save the pane
     /// before closing it.
-    pub fn close_active_document(&mut self) -> Result<()> {
-        if !self.document_manager.active().is_dirty() {
-            self.document_manager.remove_active();
+    pub fn close_active_pane(&mut self) -> Result<()> {
+        // If there are multiple panes with the same buffer id, only close the active pane.
+        let active_buffer_id = self.pane_manager.active().buffer_id();
+        if !self.pane_manager.is_unique(active_buffer_id) {
+            self.pane_manager.close_active();
+            return Ok(());
+        }
+
+        self.close_buffer(active_buffer_id)
+    }
+
+    /// Closes the buffer with the given id prompting the user to save the buffer if it is dirty.
+    pub fn close_buffer(&mut self, id: usize) -> Result<()> {
+        if !self.pane_manager.active().is_dirty() {
+            self.pane_manager.close_active();
+            self.buffer_manager.close(id);
             return Ok(());
         }
 
         self.prompt_manager.show_prompt(
             PromptType::Confirm(ConfirmPrompt::new(
-                "Document contains unsaved changes, do you want to save before closing it?",
+                "Buffer contains unsaved changes, do you want to save before closing it?",
             )),
-            |editor, response| {
+            move |editor, response| {
                 match response {
                     PromptResponse::Yes => {
-                        editor.save_active_document(None::<&str>)?;
-                        editor.document_manager.remove_active()
+                        editor.save_active_buffer(None::<&str>)?;
+                        editor.pane_manager.close_active();
+                        editor.buffer_manager.close(id);
                     }
-                    PromptResponse::No => editor.document_manager.remove_active(),
+                    PromptResponse::No => {
+                        editor.pane_manager.close_active();
+                        editor.buffer_manager.close(id);
+                    }
                     _ => return Ok(()),
                 };
                 Ok(())
             },
         );
-
         Ok(())
     }
 
@@ -371,9 +372,12 @@ impl Editor {
         let layout_context = LayoutContext::from(&*self);
         self.layout = Layout::calculate(&layout_context);
 
-        let active_document = self.document_manager.active_mut();
-        active_document.update_viewport(self.layout.document.width, self.layout.document.height);
-        active_document.scroll_to_cursor();
+        let active_pane = self.pane_manager.active_mut();
+        active_pane.update_viewport(
+            self.layout.pane_manager.width,
+            self.layout.pane_manager.height,
+        );
+        active_pane.scroll_to_cursor();
         Ok(())
     }
 

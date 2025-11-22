@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::editor::renderer::{
     Renderable, RenderingContext, frame::Frame, layout::Layout, viewport::Viewport,
 };
@@ -10,35 +12,27 @@ pub struct Compositor;
 impl Compositor {
     /// Composes a frame from the given context and layout.
     pub fn compose_frame(ctx: &RenderingContext, layout: &Layout) -> Frame {
-        let mut frame = Frame::new(layout.width, layout.height);
+        let frame = RefCell::new(Frame::new(layout.width, layout.height));
 
-        let gutter_viewport = Viewport::new(layout.gutter, &mut frame);
-        ctx.gutter.render(ctx, gutter_viewport);
-
-        let document_viewport = Viewport::new(layout.document, &mut frame);
-        ctx.document.render(ctx, document_viewport);
+        let pane_viewport = Viewport::new(layout.pane_manager, &frame);
+        ctx.pane_manager.render(ctx, pane_viewport);
 
         if let Some(rect) = layout.prompt
             && let Some(prompt) = &ctx.prompt
         {
-            let prompt_viewport = Viewport::new(rect, &mut frame);
+            let prompt_viewport = Viewport::new(rect, &frame);
             prompt.render(ctx, prompt_viewport);
         } else if let Some(rect) = layout.command_palette {
-            let command_palette_viewport = Viewport::new(rect, &mut frame);
+            let command_palette_viewport = Viewport::new(rect, &frame);
             ctx.command_palette.render(ctx, command_palette_viewport);
         }
 
-        let status_bar_viewport = Viewport::new(layout.status_bar, &mut frame);
+        let status_bar_viewport = Viewport::new(layout.status_bar, &frame);
         ctx.status_bar.render(ctx, status_bar_viewport);
 
-        let cursor_position = ctx.document.cursor_position();
-        frame.set_cursor_position(
-            cursor_position.0.saturating_add(ctx.gutter.width()),
-            cursor_position
-                .1
-                .saturating_sub(ctx.document.viewport_row_offset()),
-        );
-
+        let (cursor_col, cursor_row) = ctx.pane_manager.active_cursor_screen_position();
+        let mut frame = frame.into_inner();
+        frame.set_cursor_position(cursor_col, cursor_row);
         frame
     }
 }

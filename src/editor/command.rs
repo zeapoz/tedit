@@ -126,15 +126,15 @@ define_commands! {
         name: "quit",
         description: "Quit the editor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            if !editor.document_manager.iter().any(|d| d.is_dirty()) {
+            if !editor.pane_manager.iter().any(|d| d.is_dirty()) {
                 editor.should_quit = true;
             } else {
                 editor.prompt_manager.show_prompt(
-                    PromptType::Confirm(ConfirmPrompt::new("There are open documents with unsaved changes, do you want to save them before quitting?")),
+                    PromptType::Confirm(ConfirmPrompt::new("There are open panes with unsaved changes, do you want to save them before quitting?")),
                     |editor, response| {
                         match response {
                             PromptResponse::Yes => {
-                                editor.save_all_open_documents()?;
+                                editor.buffer_manager.save_all_buffers()?;
                                 editor.should_quit = true;
                             },
                             PromptResponse::No => editor.should_quit = true,
@@ -149,14 +149,14 @@ define_commands! {
     },
     Save {
         name: "save",
-        description: "Save the current document",
+        description: "Save the current pane",
         handler: |editor: &mut Editor, args: &CommandArgs| {
             if args.num_positional() > 1 {
                 return Err(Error::TooManyArguments { expected: 1 });
             }
 
             let path = args.get_positional(0);
-            editor.save_active_document(path)?;
+            editor.save_active_buffer(path)?;
             Ok(())
         }
     },
@@ -165,7 +165,7 @@ define_commands! {
         description: "Open a search prompt",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
             editor.prompt_manager.show_prompt(
-                PromptType::Search(SearchPrompt::new(editor.document_manager.active_mut().clone())),
+                PromptType::Search(SearchPrompt::new(editor.pane_manager.active_mut().clone())),
                 |editor, response| {
                     // TODO: Use text to populate a new search state struct in editor for jumping
                     // between all search results.
@@ -212,38 +212,38 @@ define_commands! {
             Ok(())
         }
     },
-    CloseDocument {
-        name: "close_document",
-        description: "Close the current document",
+    ClosePane {
+        name: "close_pane",
+        description: "Close the current pane",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.close_active_document()?;
+            editor.close_active_pane()?;
             Ok(())
         }
     },
-    NextDocument {
-        name: "next_document",
-        description: "Open next document",
+    NextPane {
+        name: "next_pane",
+        description: "Open next pane",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.next_document();
+            editor.pane_manager.next_pane();
             Ok(())
         }
     },
-    PrevDocument {
-        name: "prev_document",
-        description: "Open previous document",
+    PrevPane {
+        name: "prev_pane",
+        description: "Open previous pane",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.prev_document();
+            editor.pane_manager.prev_pane();
             Ok(())
         }
     },
-    ListDocuments {
-        name: "list_documents",
-        description: "Lists all open documents",
+    ListBuffer {
+        name: "list_buffers",
+        description: "Lists all open panes",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            let file_names: Vec<String> = editor.document_manager
-                .iter()
+            let file_names: Vec<String> = editor.buffer_manager
+                .iter_buffer_names()
                 .enumerate()
-                .map(|(i, d)| format!("{}:{}", i + 1, d.file_name()))
+                .map(|(i, file)| format!("{}:{}", i + 1, file))
                 .collect();
             editor.show_message(&file_names.join(" "));
             Ok(())
@@ -254,7 +254,7 @@ define_commands! {
         name: "move_cursor_left",
         description: "Move the cursor left",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().move_cursor_left();
+            editor.pane_manager.active_mut().move_cursor_left();
             Ok(())
         }
     },
@@ -262,7 +262,7 @@ define_commands! {
         name: "move_cursor_right",
         description: "Move the cursor right",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().move_cursor_right();
+            editor.pane_manager.active_mut().move_cursor_right();
             Ok(())
         }
     },
@@ -270,7 +270,7 @@ define_commands! {
         name: "move_cursor_up",
         description: "Move the cursor up",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().move_cursor_up();
+            editor.pane_manager.active_mut().move_cursor_up();
             Ok(())
         }
     },
@@ -278,7 +278,7 @@ define_commands! {
         name: "move_cursor_down",
         description: "Move the cursor down",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().move_cursor_down();
+            editor.pane_manager.active_mut().move_cursor_down();
             Ok(())
         }
     },
@@ -286,7 +286,7 @@ define_commands! {
         name: "move_cursor_to_start_of_row",
         description: "Move the cursor to the start of the row",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().move_cursor_to_start_of_row();
+            editor.pane_manager.active_mut().move_cursor_to_start_of_row();
             Ok(())
         }
     },
@@ -294,7 +294,7 @@ define_commands! {
         name: "move_cursor_to_end_of_row",
         description: "Move the cursor to the end of the row",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().move_cursor_to_end_of_row();
+            editor.pane_manager.active_mut().move_cursor_to_end_of_row();
             Ok(())
         }
     },
@@ -303,7 +303,7 @@ define_commands! {
         name: "insert_newline",
         description: "Insert a newline",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().insert_newline();
+            editor.pane_manager.active_mut().insert_newline();
             Ok(())
         }
     },
@@ -311,7 +311,7 @@ define_commands! {
         name: "delete_char",
         description: "Delete the character under the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().delete_char();
+            editor.pane_manager.active_mut().delete_char();
             Ok(())
         }
     },
@@ -319,7 +319,7 @@ define_commands! {
         name: "delete_char_before",
         description: "Delete the character before the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.document_manager.active_mut().delete_char_before();
+            editor.pane_manager.active_mut().delete_char_before();
             Ok(())
         }
     },
