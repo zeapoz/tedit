@@ -1,4 +1,4 @@
-/// A rectangle on the terminal.
+/// A rectangle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
     pub col: usize,

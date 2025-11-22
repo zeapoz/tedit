@@ -1,9 +1,13 @@
 use thiserror::Error;
 
 use crate::editor::{
-    buffer::BufferEntry,
+    buffer::{
+        BufferEntry,
+        modification::{ActionRange, BufferAction, BufferModification},
+    },
+    geometry::rect::Rect,
     pane::{Pane, viewport::Viewport},
-    renderer::{Rect, Renderable, RenderingContext, viewport::Viewport as RenderingViewport},
+    renderer::{Renderable, RenderingContext, viewport::Viewport as RenderingViewport},
 };
 
 #[derive(Debug, Error)]
@@ -31,10 +35,12 @@ impl BarsLayout {
 /// A manager for multiple panes.
 #[derive(Debug, Clone)]
 pub struct PaneManager {
-    /// All panes in the manager.
-    panes: Vec<Pane>,
+    /// The next id to assign to a new pane.
+    next_id: usize,
     /// The index of the active pane.
     active_pane: usize,
+    /// All panes in the manager.
+    panes: Vec<Pane>,
     /// The size of the pane manager. This is used to calculate the size of the viewports.
     rect: Rect,
     /// The layout of the panes.
@@ -46,6 +52,7 @@ impl PaneManager {
         let panes = Vec::new();
         let layout = BarsLayout::calculate_layout(&panes, rect);
         Self {
+            next_id: 0,
             panes,
             active_pane: 0,
             rect,
@@ -55,7 +62,8 @@ impl PaneManager {
 
     /// Opens a new pane.
     pub fn open_pane(&mut self, buffer: BufferEntry, viewport: Viewport) {
-        let pane = Pane::new(buffer, viewport);
+        let pane = Pane::new(self.next_id, buffer, viewport);
+        self.next_id += 1;
         self.add(pane);
     }
 
@@ -75,6 +83,38 @@ impl PaneManager {
         self.layout = BarsLayout::calculate_layout(&self.panes, self.rect);
         for (pane, rect) in self.panes.iter_mut().zip(self.layout.rects.iter()) {
             pane.update_viewport(rect.width, rect.height);
+        }
+    }
+
+    /// Handles a buffer modification and scrolls the viewports of all panes to stay anchored
+    /// relative to their view before the modification.
+    pub fn handle_buffer_modification(&mut self, modification: &BufferModification) {
+        let (scroll_offset, row): (isize, _) = match &modification.action {
+            BufferAction::Insert { start, .. } if modification.action.is_insert_newline() => {
+                (1, start.row)
+            }
+            BufferAction::Delete(ActionRange::Line(row)) => (-1, *row),
+            _ => return,
+        };
+
+        let active_pane = self.active_pane;
+        for pane in self
+            .iter_mut()
+            .filter(|p| p.id != active_pane && p.buffer_id() == modification.buffer_id)
+        {
+            // Anchor the cursor to the current row.
+            if scroll_offset.is_positive() && pane.cursor.row() > row {
+                pane.move_cursor_down();
+                pane.scroll_to_cursor();
+            } else if scroll_offset.is_negative() && pane.cursor.row() >= row {
+                pane.move_cursor_up();
+                pane.scroll_to_cursor();
+            }
+
+            // Anchor the viewport if the viewport is farther down than the affected row.
+            if pane.viewport.row_offset > row + pane.viewport.height() {
+                pane.scroll_vertically(scroll_offset);
+            }
         }
     }
 

@@ -5,9 +5,10 @@ use thiserror::Error;
 
 use crate::editor::{
     backend::EditorBackend,
-    buffer::manager::BufferManager,
+    buffer::{BufferEntry, manager::BufferManager},
     command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
+    geometry::point::Point,
     keymap::Keymap,
     pane::{manager::PaneManager, viewport::Viewport},
     prompt::{
@@ -27,6 +28,7 @@ pub mod backend;
 mod buffer;
 mod command;
 mod command_palette;
+pub mod geometry;
 mod keymap;
 mod pane;
 mod prompt;
@@ -100,16 +102,22 @@ pub struct Editor {
 
 impl Editor {
     /// Returns a new editor.
-    pub fn new<P: AsRef<Path>>(file: Option<P>) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(files: Option<Vec<P>>) -> Result<Self> {
         let renderer = Renderer::initialize()?;
         let backend = EditorBackend;
 
         // Open a buffer via the buffer manager.
         let mut buffer_manager = BufferManager::default();
-        let buffer = if let Some(path) = file {
-            buffer_manager.open_new_or_existing_file(path)?
+        let buffers = if let Some(paths) = files {
+            paths
+                .into_iter()
+                .map(|path| -> Result<BufferEntry> {
+                    let buffer = buffer_manager.open_new_or_existing_file(path)?;
+                    Ok(buffer)
+                })
+                .collect::<Result<_>>()?
         } else {
-            buffer_manager.open_empty_file()
+            vec![buffer_manager.open_empty_file()]
         };
 
         let mode = Mode::default();
@@ -129,7 +137,9 @@ impl Editor {
         // Create a new pane and add it to the pane manager.
         let viewport = Viewport::new(layout.pane_manager.width, layout.pane_manager.height);
         let mut pane_manager = PaneManager::new(layout.pane_manager);
-        pane_manager.open_pane(buffer, viewport);
+        for buffer in buffers {
+            pane_manager.open_pane(buffer, viewport);
+        }
 
         Ok(Self {
             buffer_manager,
@@ -253,7 +263,7 @@ impl Editor {
                 PromptStatus::Pending => {}
                 PromptStatus::Changed => {
                     let action = active.prompt.on_changed();
-                    if let PromptAction::MoveCursor { col, row } = action {
+                    if let PromptAction::MoveCursor(Point { col, row }) = action {
                         self.pane_manager.active_mut().move_cursor_to(col, row);
                     }
                 }

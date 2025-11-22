@@ -2,6 +2,7 @@ use crossterm::event::KeyEvent;
 
 use crate::editor::{
     self, Editor,
+    geometry::point::Point,
     prompt::{confirm::ConfirmPrompt, search::SearchPrompt},
     renderer::{Renderable, RenderingContext, viewport::Viewport},
 };
@@ -71,7 +72,7 @@ pub enum PromptResponse {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PromptAction {
     None,
-    MoveCursor { col: usize, row: usize },
+    MoveCursor(Point),
 }
 
 /// Represents the status of a prompt.

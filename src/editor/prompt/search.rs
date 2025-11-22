@@ -45,8 +45,8 @@ impl Prompt for SearchPrompt {
     }
 
     fn on_changed(&mut self) -> PromptAction {
-        if let Some((col, row)) = self.pane.find_next(&self.query) {
-            PromptAction::MoveCursor { col, row }
+        if let Some(point) = self.pane.find_next(&self.query) {
+            PromptAction::MoveCursor(point)
         } else {
             PromptAction::None
         }

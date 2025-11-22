@@ -7,9 +7,17 @@ use std::{
 
 use thiserror::Error;
 
-use crate::editor::{buffer::row::Row, pane::cursor::Cursor};
+use crate::editor::{
+    buffer::{
+        modification::{ActionRange, BufferAction},
+        row::Row,
+    },
+    geometry::point::Point,
+    pane::cursor::Cursor,
+};
 
 pub mod manager;
+pub mod modification;
 pub mod row;
 
 #[derive(Debug, Error)]
@@ -96,20 +104,22 @@ impl Buffer {
         })
     }
 
-    /// Inserts a character at the given cursor position. Returns `true` if the character was
-    /// inserted, `false` otherwise.
-    pub fn insert_char(&mut self, c: char, cursor: &Cursor) -> bool {
+    /// Inserts a character at the given cursor position.
+    pub fn insert_char(&mut self, c: char, cursor: &Cursor) -> BufferAction {
         if let Some(row) = self.rows.get_mut(cursor.row())
             && row.insert_char(cursor.col(), c)
         {
             self.dirty = true;
-            return true;
+            return BufferAction::Insert {
+                start: cursor.position().into(),
+                text: c.to_string(),
+            };
         }
-        false
+        BufferAction::None
     }
 
     /// Inserts a newline at the given cursor position.
-    pub fn insert_newline(&mut self, cursor: &Cursor) {
+    pub fn insert_newline(&mut self, cursor: &Cursor) -> BufferAction {
         if let Some(row) = self.rows.get_mut(cursor.row()) {
             let (left, right) = row.split_at(cursor.col());
             let _ = mem::replace(row, left);
@@ -117,45 +127,65 @@ impl Buffer {
             // better data structure that doesn't require this to store the text.
             self.rows.insert(cursor.row() + 1, right);
             self.dirty = true;
+
+            return BufferAction::Insert {
+                start: cursor.position().into(),
+                text: "\n".into(),
+            };
         }
+
+        BufferAction::None
     }
 
     /// Deletes a character at the given cursor position. If the cursor is at the end of the row,
     /// joins the row with the next row.
-    pub fn delete_char(&mut self, cursor: &Cursor) {
+    pub fn delete_char(&mut self, cursor: &Cursor) -> BufferAction {
         let current_row_len = self
             .rows
             .get(cursor.row())
             .map(|r| r.len())
             .unwrap_or_default();
         if current_row_len == 0 {
-            return;
+            return BufferAction::None;
         }
 
         // If the cursor is at the last column, join with the next row. Otherwise, just delete the
         // character.
         if cursor.col() == current_row_len {
             let next_row = cursor.row().saturating_add(1);
-            self.join_rows(cursor.row(), next_row);
+            return self.append_line_to_line(cursor.row(), next_row);
         } else if let Some(row) = self.rows.get_mut(cursor.row())
             && row.delete_char(cursor.col())
         {
             self.dirty = true;
+
+            let delete_range = ActionRange::PointToPoint {
+                from: cursor.position().into(),
+                to: cursor.position().into(),
+            };
+            return BufferAction::Delete(delete_range);
         }
+
+        BufferAction::None
     }
 
-    /// Joins two rows together by appending the row at index `right` to the row at index `left`.
-    pub fn join_rows(&mut self, left: usize, right: usize) {
-        let right_row = self.rows.remove(right);
-        if let Some(row) = self.rows.get_mut(left) {
+    /// Appends the row at index `right` to the row at index `left`.
+    pub fn append_line_to_line(&mut self, from: usize, to: usize) -> BufferAction {
+        let right_row = self.rows.remove(from);
+        if let Some(row) = self.rows.get_mut(to) {
             row.append_row(&right_row);
             self.dirty = true;
+
+            // FIXME: This is a hack to make sure that the buffer viewport maintains its position
+            // when another pane deletes a line.
+            return BufferAction::Delete(ActionRange::Line(from));
         }
+        BufferAction::None
     }
 
     /// Finds the next occurrence of the given string in the buffer and returns its position or
     /// `None` if not found.
-    pub fn find_next(&self, s: &str, cursor: &Cursor) -> Option<(usize, usize)> {
+    pub fn find_next(&self, s: &str, cursor: &Cursor) -> Option<Point> {
         self.rows
             .iter()
             .enumerate()
@@ -167,7 +197,7 @@ impl Buffer {
                 } else {
                     0
                 };
-                row.find_next(s, offset).map(|col| (col, i))
+                row.find_next(s, offset).map(|col| Point::new(col, i))
             })
     }
 

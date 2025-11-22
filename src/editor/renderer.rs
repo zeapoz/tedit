@@ -11,12 +11,9 @@ use crate::editor::{
     status_bar::StatusBar,
 };
 
-pub use rect::Rect;
-
 pub mod compositor;
 pub mod frame;
 pub mod layout;
-pub mod rect;
 pub mod style;
 pub mod viewport;
 

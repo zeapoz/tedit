@@ -195,7 +195,7 @@ define_commands! {
             Ok(())
         }
     },
-    // Document handling.
+    // Pane and buffer handling.
     Open {
         name: "open",
         description: "Open a file",
@@ -208,6 +208,17 @@ define_commands! {
                 if let Err(err) = editor.open_file(path) {
                     return Err(Error::ExecutionError(err));
                 }
+            }
+            Ok(())
+        }
+    },
+    DuplicatePane {
+        name: "duplicate_pane",
+        description: "Duplicate the current pane",
+        handler: |editor: &mut Editor, _args: &CommandArgs| {
+            let path = editor.pane_manager.active().file_name();
+            if let Err(err) = editor.open_file(path) {
+                return Err(Error::ExecutionError(err));
             }
             Ok(())
         }
@@ -303,7 +314,8 @@ define_commands! {
         name: "insert_newline",
         description: "Insert a newline",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().insert_newline();
+            let buffer_mod = editor.pane_manager.active_mut().insert_newline();
+            editor.pane_manager.handle_buffer_modification(&buffer_mod);
             Ok(())
         }
     },
@@ -311,7 +323,8 @@ define_commands! {
         name: "delete_char",
         description: "Delete the character under the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().delete_char();
+            let buffer_mod = editor.pane_manager.active_mut().delete_char();
+            editor.pane_manager.handle_buffer_modification(&buffer_mod);
             Ok(())
         }
     },
@@ -319,7 +332,8 @@ define_commands! {
         name: "delete_char_before",
         description: "Delete the character before the cursor",
         handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().delete_char_before();
+            let buffer_mod = editor.pane_manager.active_mut().delete_char_before();
+            editor.pane_manager.handle_buffer_modification(&buffer_mod);
             Ok(())
         }
     },

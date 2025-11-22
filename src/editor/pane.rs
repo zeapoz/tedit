@@ -2,7 +2,11 @@
 use std::path::Path;
 
 use crate::editor::{
-    buffer::{BufferEntry, Error},
+    buffer::{
+        BufferEntry, Error,
+        modification::{BufferAction, BufferModification},
+    },
+    geometry::point::Point,
     pane::{cursor::Cursor, gutter::Gutter, viewport::Viewport},
     renderer::{
         Renderable, RenderingContext,
@@ -19,6 +23,7 @@ pub mod viewport;
 
 #[derive(Debug, Clone)]
 pub struct Pane {
+    id: usize,
     buffer: BufferEntry,
     cursor: Cursor,
     gutter: Gutter,
@@ -26,8 +31,9 @@ pub struct Pane {
 }
 
 impl Pane {
-    pub fn new(buffer: BufferEntry, viewport: Viewport) -> Self {
+    pub fn new(id: usize, buffer: BufferEntry, viewport: Viewport) -> Self {
         Self {
+            id,
             buffer,
             cursor: Cursor::default(),
             gutter: Gutter::default(),
@@ -36,48 +42,55 @@ impl Pane {
     }
 
     /// Inserts a character at the current cursor position and attempt to advances the cursor
-    /// column.
-    pub fn insert_char(&mut self, c: char) {
+    /// column. Returns the buffer modification and the buffer id.
+    pub fn insert_char(&mut self, c: char) -> BufferModification {
         let mut buffer = self.buffer.write().unwrap();
-        if buffer.insert_char(c, &self.cursor) {
+        let modification = buffer.insert_char(c, &self.cursor);
+        if let BufferAction::Insert { .. } = modification {
             self.cursor.move_right(&buffer);
         }
+
+        BufferModification::new(self.buffer.id, modification)
     }
 
     /// Inserts a newline at the current cursor position.
-    pub fn insert_newline(&mut self) {
+    pub fn insert_newline(&mut self) -> BufferModification {
         let mut buffer = self.buffer.write().unwrap();
-        buffer.insert_newline(&self.cursor);
+        let modification = buffer.insert_newline(&self.cursor);
         self.cursor.move_to_start_of_next_row(&buffer);
+        BufferModification::new(self.buffer.id, modification)
     }
 
     /// Deletes a character at the current cursor position.
-    pub fn delete_char(&mut self) {
+    pub fn delete_char(&mut self) -> BufferModification {
         let mut buffer = self.buffer.write().unwrap();
-        buffer.delete_char(&self.cursor);
+        let modification = buffer.delete_char(&self.cursor);
+        BufferModification::new(self.buffer.id, modification)
     }
 
     /// Deletes a character before the current cursor position.
-    pub fn delete_char_before(&mut self) {
+    pub fn delete_char_before(&mut self) -> BufferModification {
         let mut buffer = self.buffer.write().unwrap();
         if self.cursor.col() == 0 && self.cursor.row() > 0 {
             let prev_row = self.cursor.row().saturating_sub(1);
             let prev_row_len = buffer.row(prev_row).map(|r| r.len()).unwrap_or_default();
 
-            buffer.join_rows(prev_row, self.cursor.row());
+            let modification = buffer.append_line_to_line(self.cursor.row(), prev_row);
             self.cursor.move_to(prev_row_len, prev_row, &buffer);
+            BufferModification::new(self.buffer_id(), modification)
         } else {
             if self.cursor.col() == 0 && self.cursor.row() == 0 {
-                return;
+                return BufferModification::new(self.buffer_id(), BufferAction::None);
             }
             self.cursor.move_left(&buffer);
-            buffer.delete_char(&self.cursor);
+            let modification = buffer.delete_char(&self.cursor);
+            BufferModification::new(self.buffer_id(), modification)
         }
     }
 
     /// Finds the next occurrence of the given string in the buffer and returns its position or
     /// `None`.
-    pub fn find_next(&mut self, s: &str) -> Option<(usize, usize)> {
+    pub fn find_next(&mut self, s: &str) -> Option<Point> {
         let buffer = self.buffer.read().unwrap();
         buffer.find_next(s, &self.cursor)
     }
@@ -140,6 +153,18 @@ impl Pane {
     /// Scrolls the viewport to the cursor.
     pub fn scroll_to_cursor(&mut self) {
         self.viewport.scroll_to_cursor(&self.cursor);
+    }
+
+    /// Scrolls the viewport vertically by the given offset.
+    pub fn scroll_vertically(&mut self, offset: isize) {
+        if offset.is_positive() {
+            self.viewport.row_offset = self.viewport.row_offset.saturating_add(offset as usize);
+        } else if offset.is_negative() {
+            self.viewport.row_offset = self
+                .viewport
+                .row_offset
+                .saturating_sub(offset.unsigned_abs());
+        }
     }
 
     /// Updates the viewport to match the current window dimensions.

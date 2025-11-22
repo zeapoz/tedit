@@ -1,6 +1,5 @@
 use crate::editor::{
-    Editor, Mode, backend::EditorBackend, prompt::PromptManager, renderer::Rect,
-    status_bar::StatusBar,
+    Editor, Mode, backend::EditorBackend, geometry::rect::Rect, prompt::PromptManager, status_bar::StatusBar
 };
 
 /// The context for the layout of the editor.
