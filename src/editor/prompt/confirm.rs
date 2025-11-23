@@ -1,9 +1,10 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
+    geometry::{anchor::Anchor, rect::Rect},
     prompt::{Prompt, PromptResponse, PromptStatus},
-    renderer::{
-        Renderable, RenderingContext,
+    ui::{
+        component::{Component, RenderingContext},
         frame::{Line, Span},
         viewport::Viewport,
     },
@@ -34,8 +35,14 @@ impl Prompt for ConfirmPrompt {
     }
 }
 
-impl Renderable for ConfirmPrompt {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport) {
+impl Component for ConfirmPrompt {
+    fn rect(&self, parent: Rect) -> Rect {
+        Rect::new(0, 0, parent.width, 1)
+            .anchored_on(parent, Anchor::BottomLeft)
+            .offset(0, -1)
+    }
+
+    fn render(&mut self, _ctx: &RenderingContext, mut viewport: Viewport) {
         let message = format!("{} [y/n] ", self.message);
         viewport.put_line(0, Line::new(viewport.width(), vec![Span::new(&message)]));
     }

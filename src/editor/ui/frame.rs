@@ -1,6 +1,4 @@
-use crate::editor::renderer::style::Style;
-
-pub mod diff;
+use crate::editor::{geometry::point::Point, ui::style::Style};
 
 /// A line of text containing multiple spans.
 #[derive(Debug, Clone)]
@@ -143,7 +141,7 @@ pub struct Frame {
     height: usize,
     /// The cells of the frame in row-major order.
     cells: Vec<Cell>,
-    cursor_position: Option<(usize, usize)>,
+    cursor_position: Option<Point>,
 }
 
 impl Frame {
@@ -165,8 +163,8 @@ impl Frame {
     }
 
     /// Sets the cursor position for this frame.
-    pub fn set_cursor_position(&mut self, col: usize, row: usize) {
-        self.cursor_position = Some((col, row));
+    pub fn set_cursor_position(&mut self, point: Point) {
+        self.cursor_position = Some(point);
     }
 
     /// Hides the cursor for this frame.
@@ -175,12 +173,49 @@ impl Frame {
     }
 
     /// Returns the cursor position for this frame.
-    pub fn cursor_position(&self) -> Option<(usize, usize)> {
+    pub fn cursor_position(&self) -> Option<Point> {
         self.cursor_position
     }
 
     /// Returns this frame as a vector of rows.
     pub fn rows(&self) -> impl Iterator<Item = &[Cell]> {
         self.cells.chunks_exact(self.width)
+    }
+}
+
+/// A cell that also knows its location in the frame.
+pub struct RowDiff<'a> {
+    pub col: usize,
+    pub row: usize,
+    pub cell: &'a Cell,
+}
+
+impl<'a> RowDiff<'a> {
+    pub fn new(col: usize, row: usize, cell: &'a Cell) -> Self {
+        Self { col, row, cell }
+    }
+}
+
+/// A diff between two frames.
+pub struct FrameDiff<'a> {
+    /// The cells that have changed between the two frames.
+    pub cells: Vec<RowDiff<'a>>,
+}
+
+impl<'a> FrameDiff<'a> {
+    /// Returns the diff between two frames.
+    pub fn compute(prev: &Frame, next: &'a Frame) -> Self {
+        let mut cells = Vec::new();
+
+        for row in 0..next.height {
+            for col in 0..next.width {
+                let idx = row * next.width + col;
+                if prev.cells[idx] != next.cells[idx] {
+                    cells.push(RowDiff::new(col, row, &next.cells[idx]));
+                }
+            }
+        }
+
+        Self { cells }
     }
 }

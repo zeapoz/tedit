@@ -7,37 +7,25 @@ use crate::editor::{
         modification::{BufferAction, BufferModification},
     },
     geometry::point::Point,
-    pane::{cursor::Cursor, gutter::Gutter, viewport::Viewport},
-    renderer::{
-        Renderable, RenderingContext,
-        frame::{Line, Span},
-        style::{Color, Style},
-        viewport::Viewport as RenderingViewport,
-    },
+    pane::cursor::Cursor,
 };
 
 pub mod cursor;
-pub mod gutter;
 pub mod manager;
-pub mod viewport;
 
 #[derive(Debug, Clone)]
 pub struct Pane {
-    id: usize,
-    buffer: BufferEntry,
-    cursor: Cursor,
-    gutter: Gutter,
-    viewport: Viewport,
+    pub id: usize,
+    pub buffer: BufferEntry,
+    pub cursor: Cursor,
 }
 
 impl Pane {
-    pub fn new(id: usize, buffer: BufferEntry, viewport: Viewport) -> Self {
+    pub fn new(id: usize, buffer: BufferEntry) -> Self {
         Self {
             id,
             buffer,
             cursor: Cursor::default(),
-            gutter: Gutter::default(),
-            viewport,
         }
     }
 
@@ -150,36 +138,6 @@ impl Pane {
         Ok(())
     }
 
-    /// Scrolls the viewport to the cursor.
-    pub fn scroll_to_cursor(&mut self) {
-        self.viewport.scroll_to_cursor(&self.cursor);
-    }
-
-    /// Scrolls the viewport vertically by the given offset.
-    pub fn scroll_vertically(&mut self, offset: isize) {
-        if offset.is_positive() {
-            self.viewport.row_offset = self.viewport.row_offset.saturating_add(offset as usize);
-        } else if offset.is_negative() {
-            self.viewport.row_offset = self
-                .viewport
-                .row_offset
-                .saturating_sub(offset.unsigned_abs());
-        }
-    }
-
-    /// Updates the viewport to match the current window dimensions.
-    pub fn update_viewport(&mut self, width: usize, height: usize) {
-        self.viewport.update_size(width, height);
-    }
-
-    // TODO: These kind of mappings should happen in some UI layer.
-    /// Handles a click event and maps the position to the corresponding row and column.
-    pub fn click(&mut self, col: usize, row: usize) {
-        let logical_col = self.viewport.col_offset + col - self.gutter.width();
-        let logical_row = self.viewport.row_offset + row;
-        self.move_cursor_to(logical_col, logical_row);
-    }
-
     /// Returns the name of the file associated with the pane.
     pub fn file_name(&self) -> String {
         let buffer = self.buffer.read().unwrap();
@@ -199,61 +157,5 @@ impl Pane {
     /// Returns the current cursor position.
     pub fn cursor_position(&self) -> (usize, usize) {
         self.cursor.position()
-    }
-
-    /// Returns the relative cursor position, the position of the cursror relative to the viewport
-    /// and offset by the gutter.
-    pub fn relaive_cursor_position(&self) -> (usize, usize) {
-        let (mut col, mut row) = self.cursor.position();
-        col = col.saturating_sub(self.viewport.col_offset) + self.gutter.width();
-        row = row.saturating_sub(self.viewport.row_offset);
-        (col, row)
-    }
-
-    /// Renders teh gutter.
-    fn render_gutter(&self, mut viewport: RenderingViewport) {
-        let cursor_row = self.cursor_position().1;
-        for row in 0..self.viewport.height() {
-            // Reserve two spaces at the end of the gutter.
-            let padding_width = self.gutter.width().saturating_sub(2);
-            let pane_row = self.viewport.row_offset + row;
-            let s = format!(
-                "{:>width$}  ",
-                pane_row.saturating_add(1),
-                width = padding_width
-            );
-
-            let style = if cursor_row == pane_row {
-                Style::new().bold().fg(Color::DarkYellow)
-            } else {
-                Style::default()
-            };
-
-            viewport.put_line(
-                row,
-                Line::new(viewport.width(), vec![Span::new(&s)]).with_style(style),
-            );
-        }
-    }
-}
-
-impl Renderable for Pane {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: RenderingViewport) {
-        let (gutter_view, mut buffer_view) = viewport.split_horizontally_exact(self.gutter.width());
-        self.render_gutter(gutter_view);
-
-        let buffer = self.buffer.read().unwrap();
-        let start_row = self.viewport.row_offset;
-        for row in 0..buffer_view.height() {
-            let buffer_row = start_row + row;
-            let row_visible_chars = buffer
-                .row(buffer_row)
-                .map(|r| r.visible_chars(&self.viewport))
-                .unwrap_or_default();
-            buffer_view.put_line(
-                row,
-                Line::new(buffer_view.width(), vec![Span::new(&row_visible_chars)]),
-            );
-        }
     }
 }

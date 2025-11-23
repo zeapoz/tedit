@@ -1,5 +1,7 @@
+use crate::editor::geometry::{anchor::Anchor, point::Point};
+
 /// A rectangle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
     pub col: usize,
     pub row: usize,
@@ -14,6 +16,19 @@ impl Rect {
             row,
             width,
             height,
+        }
+    }
+
+    /// Anchors a new rect to this rect. The new rect will be placed at the given anchor in the
+    /// parent rect.
+    pub fn anchored_on(self, parent: Rect, anchor: Anchor) -> Rect {
+        match anchor {
+            Anchor::TopLeft => self.move_to(parent.top_left()),
+            Anchor::TopRight => self.move_to(parent.top_right() - Point::new(self.width, 0)),
+            Anchor::BottomLeft => self.move_to(parent.bottom_left() - Point::new(0, self.height)),
+            Anchor::BottomRight => {
+                self.move_to(parent.bottom_right() - Point::new(self.width, self.height))
+            }
         }
     }
 
@@ -123,18 +138,42 @@ impl Rect {
         (top, bottom)
     }
 
-    /// Returns the last row in the rectangle. This is equivalent to `row + height - 1`.
-    pub fn last_row(&self) -> usize {
-        (self.row + self.height).saturating_sub(1)
+    /// Moves this rect to another position.
+    pub fn move_to(mut self, Point { col, row }: Point) -> Rect {
+        self.col = col;
+        self.row = row;
+        self
     }
 
-    /// Returns an iterator over all rows in the rectangle.
-    pub fn rows(&self) -> impl Iterator<Item = usize> {
-        self.row..self.row + self.height
+    /// Moves this rect by the given offset.
+    pub fn offset(mut self, col: isize, row: isize) -> Rect {
+        self.col = (self.col as isize + col) as usize;
+        self.row = (self.row as isize + row) as usize;
+        self
     }
 
-    /// Returns an iterator over all columns in the rectangle.
-    pub fn cols(&self) -> impl Iterator<Item = usize> {
-        self.col..self.col + self.width
+    /// Returns the size of the rect.
+    pub fn size(&self) -> (usize, usize) {
+        (self.width, self.height)
+    }
+
+    /// Returns the top left point of the rect.
+    pub fn top_left(&self) -> Point {
+        Point::new(self.col, self.row)
+    }
+
+    /// Returns the top right point of the rect.
+    pub fn top_right(&self) -> Point {
+        Point::new(self.col + self.width, self.row)
+    }
+
+    /// Returns the bottom left point of the rect.
+    pub fn bottom_left(&self) -> Point {
+        Point::new(self.col, self.row + self.height)
+    }
+
+    /// Returns the bottom right point of the rect.
+    pub fn bottom_right(&self) -> Point {
+        Point::new(self.col + self.width, self.row + self.height)
     }
 }

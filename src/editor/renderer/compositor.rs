@@ -1,38 +1,60 @@
 use std::cell::RefCell;
 
-use crate::editor::renderer::{
-    Renderable, RenderingContext, frame::Frame, layout::Layout, viewport::Viewport,
+use crate::editor::{
+    Mode, command_palette::CommandPalette, prompt::PromptManager, ui::{
+        component::{
+            Component, RenderingContext, pane_manager::PaneManagerView, status_bar::StatusBar,
+        },
+        frame::Frame,
+        viewport::Viewport,
+    }
 };
 
-// TODO: Implement layers.
+// TODO: Store each Renderable here once view model separation is complete.
 /// A compositor that organizes the rendering of multiple objects on the terminal.
-#[derive(Debug)]
-pub struct Compositor;
+#[derive(Debug, Default, Clone)]
+pub struct Compositor {
+    pane_manager_view: PaneManagerView,
+    status_bar: StatusBar,
+}
 
 impl Compositor {
-    /// Composes a frame from the given context and layout.
-    pub fn compose_frame(ctx: &RenderingContext, layout: &Layout) -> Frame {
-        let frame = RefCell::new(Frame::new(layout.width, layout.height));
+    /// Composes a frame from the given context.
+    pub fn compose_frame(
+        &mut self,
+        ctx: &RenderingContext,
+        prompt_manager: &mut PromptManager,
+        command_palette: &mut CommandPalette,
+    ) -> Frame {
+        let editor_view = ctx.editor_view;
+        let frame = RefCell::new(Frame::new(editor_view.width, editor_view.height));
 
-        let pane_viewport = Viewport::new(layout.pane_manager, &frame);
-        ctx.pane_manager.render(ctx, pane_viewport);
+        self.pane_manager_view.render(
+            ctx,
+            Viewport::new(self.pane_manager_view.rect(editor_view), &frame),
+        );
+        self.status_bar.render(
+            ctx,
+            Viewport::new(self.status_bar.rect(editor_view), &frame),
+        );
 
-        if let Some(rect) = layout.prompt
-            && let Some(prompt) = &ctx.prompt
-        {
-            let prompt_viewport = Viewport::new(rect, &frame);
-            prompt.render(ctx, prompt_viewport);
-        } else if let Some(rect) = layout.command_palette {
-            let command_palette_viewport = Viewport::new(rect, &frame);
-            ctx.command_palette.render(ctx, command_palette_viewport);
+        if let Some(active) = prompt_manager.active_prompt.as_mut() {
+            active
+                .prompt
+                .render(ctx, Viewport::new(active.prompt.rect(editor_view), &frame));
+        } else if ctx.mode == Mode::Command {
+            command_palette.render(
+                ctx,
+                Viewport::new(command_palette.rect(editor_view), &frame),
+            );
         }
 
-        let status_bar_viewport = Viewport::new(layout.status_bar, &frame);
-        ctx.status_bar.render(ctx, status_bar_viewport);
-
-        let (cursor_col, cursor_row) = ctx.pane_manager.active_cursor_screen_position();
+        // Update the cursor position based on its screen position in the pane manager view.
+        let cursor_position = self
+            .pane_manager_view
+            .get_active_cursor_screen_position(&ctx.pane_manager);
         let mut frame = frame.into_inner();
-        frame.set_cursor_position(cursor_col, cursor_row);
+        frame.set_cursor_position(cursor_position);
         frame
     }
 }

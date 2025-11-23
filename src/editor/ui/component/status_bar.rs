@@ -1,10 +1,13 @@
 use std::time::{Duration, Instant};
 
-use crate::editor::renderer::{
-    Renderable, RenderingContext,
-    frame::{Line, Span},
-    style::Style,
-    viewport::Viewport,
+use crate::editor::{
+    geometry::{anchor::Anchor, rect::Rect},
+    ui::{
+        component::{Component, RenderingContext},
+        frame::{Line, Span},
+        style::Style,
+        viewport::Viewport,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -51,8 +54,6 @@ impl Message {
 pub struct StatusBar {
     /// The height of the status bar.
     height: usize,
-    /// An optional message to display in the status bar.
-    message: Option<Message>,
 }
 
 impl StatusBar {
@@ -63,33 +64,24 @@ impl StatusBar {
         self.height
     }
 
-    /// Sets the message to display in the status bar.
-    pub fn set_message(&mut self, message: Message) {
-        self.message = Some(message);
-    }
-
     /// Updates the state of the status bar.
-    pub fn update(&mut self) {
-        // Check if the message has timed out. If so, clear it.
-        if let Some(message) = &self.message
-            && message.timed_out()
-        {
-            self.message = None;
-        }
-    }
+    pub fn update(&mut self) {}
 }
 
 impl Default for StatusBar {
     fn default() -> Self {
         Self {
             height: Self::DEFAULT_HEIGHT,
-            message: None,
         }
     }
 }
 
-impl Renderable for StatusBar {
-    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport) {
+impl Component for StatusBar {
+    fn rect(&self, parent: Rect) -> Rect {
+        Rect::new(0, 0, parent.width, self.height).anchored_on(parent, Anchor::BottomLeft)
+    }
+
+    fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
         let mode = format!(" {} ", ctx.mode);
         let mode_style = Style::new().bold().bg(ctx.mode.into());
 
@@ -104,7 +96,11 @@ impl Renderable for StatusBar {
         let (cursor_col, cursor_row) = active_pane.cursor_position();
         let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
 
-        let message = self.message.as_ref().map(|m| m.text()).unwrap_or_default();
+        let message = ctx
+            .status_message
+            .as_ref()
+            .map(|m| m.text())
+            .unwrap_or_default();
 
         viewport.put_line(
             0,

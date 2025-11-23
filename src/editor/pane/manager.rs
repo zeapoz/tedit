@@ -5,31 +5,13 @@ use crate::editor::{
         BufferEntry,
         modification::{ActionRange, BufferAction, BufferModification},
     },
-    geometry::rect::Rect,
-    pane::{Pane, viewport::Viewport},
-    renderer::{Renderable, RenderingContext, viewport::Viewport as RenderingViewport},
+    pane::Pane,
 };
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("attempted to access pane at index {index}, but the len is {len}")]
     IndexOutOfRange { index: usize, len: usize },
-}
-
-/// A basic pane layout that organizes panes into equally-sized bars.
-#[derive(Debug, Clone)]
-struct BarsLayout {
-    pub rects: Vec<Rect>,
-}
-
-impl BarsLayout {
-    /// Calculate the layout confitguration based on the number of panes and the size of the pane
-    /// manager rectangle.
-    pub fn calculate_layout(panes: &[Pane], rect: Rect) -> BarsLayout {
-        Self {
-            rects: rect.split_vertically_n(panes.len()),
-        }
-    }
 }
 
 /// A manager for multiple panes.
@@ -41,49 +23,28 @@ pub struct PaneManager {
     active_pane: usize,
     /// All panes in the manager.
     panes: Vec<Pane>,
-    /// The size of the pane manager. This is used to calculate the size of the viewports.
-    rect: Rect,
-    /// The layout of the panes.
-    layout: BarsLayout,
 }
 
 impl PaneManager {
-    pub fn new(rect: Rect) -> Self {
+    pub fn new() -> Self {
         let panes = Vec::new();
-        let layout = BarsLayout::calculate_layout(&panes, rect);
         Self {
             next_id: 0,
             panes,
             active_pane: 0,
-            rect,
-            layout,
         }
     }
 
-    /// Opens a new pane.
-    pub fn open_pane(&mut self, buffer: BufferEntry, viewport: Viewport) {
-        let pane = Pane::new(self.next_id, buffer, viewport);
-        self.next_id += 1;
-        self.add(pane);
-    }
+    /// Opens a new pane and updates all viewports.
+    pub fn open_pane(&mut self, buffer: BufferEntry) {
+        let pane = Pane::new(self.next_id, buffer);
 
-    /// Adds a new [`Pane`] and sets it as the active pane.
-    pub fn add(&mut self, pane: Pane) {
+        self.next_id += 1;
         self.panes.push(pane);
 
         let new_index = self.panes.len().saturating_sub(1);
         self.set_active(new_index)
             .expect("index is always in range");
-
-        self.update_viewports();
-    }
-
-    /// Updates the viewports of all panes.
-    fn update_viewports(&mut self) {
-        self.layout = BarsLayout::calculate_layout(&self.panes, self.rect);
-        for (pane, rect) in self.panes.iter_mut().zip(self.layout.rects.iter()) {
-            pane.update_viewport(rect.width, rect.height);
-        }
     }
 
     /// Handles a buffer modification and scrolls the viewports of all panes to stay anchored
@@ -105,16 +66,16 @@ impl PaneManager {
             // Anchor the cursor to the current row.
             if scroll_offset.is_positive() && pane.cursor.row() > row {
                 pane.move_cursor_down();
-                pane.scroll_to_cursor();
             } else if scroll_offset.is_negative() && pane.cursor.row() >= row {
                 pane.move_cursor_up();
-                pane.scroll_to_cursor();
+                // pane.scroll_to_cursor();
             }
 
+            // TODO: Handle in UI layer.
             // Anchor the viewport if the viewport is farther down than the affected row.
-            if pane.viewport.row_offset > row + pane.viewport.height() {
-                pane.scroll_vertically(scroll_offset);
-            }
+            // if pane.viewport.row_offset > row + pane.viewport.height() {
+            //     pane.scroll_vertically(scroll_offset);
+            // }
         }
     }
 
@@ -171,23 +132,12 @@ impl PaneManager {
         // }
 
         self.active_pane = self.active_pane.min(self.panes.len().saturating_sub(1));
-        self.update_viewports();
-
         removed
     }
 
     /// Closes the active pane.
     pub fn close_active(&mut self) -> Pane {
         self.remove(self.active_pane)
-    }
-
-    /// Returns the screen position of the cursor in the active pane.
-    pub fn active_cursor_screen_position(&self) -> (usize, usize) {
-        let active_rect = self.layout.rects[self.active_pane];
-        let (mut col, mut row) = self.active().relaive_cursor_position();
-        col = col.saturating_add(active_rect.col);
-        row = row.saturating_add(active_rect.row);
-        (col, row)
     }
 
     /// Iterate through all panes.
@@ -200,16 +150,6 @@ impl PaneManager {
         self.panes.iter_mut()
     }
 
-    /// Pop the last pane from the list.
-    pub fn pop(&mut self) -> Option<Pane> {
-        self.panes.pop()
-    }
-
-    /// Returns `true` if the pane list is empty.
-    pub fn is_empty(&self) -> bool {
-        self.panes.is_empty()
-    }
-
     /// Returns `true` if only one pane has the given buffer id.
     pub fn is_unique(&self, buffer_id: usize) -> bool {
         self.iter().filter(|p| p.buffer_id() == buffer_id).count() == 1
@@ -219,13 +159,9 @@ impl PaneManager {
     pub fn num_panes(&self) -> usize {
         self.panes.len()
     }
-}
 
-impl Renderable for PaneManager {
-    fn render(&self, ctx: &RenderingContext, mut viewport: RenderingViewport) {
-        for (pane, rect) in self.panes.iter().zip(self.layout.rects.iter()) {
-            let pane_viewport = viewport.sub_rect(*rect).unwrap();
-            pane.render(ctx, pane_viewport);
-        }
+    /// Returns the index of the active pane.
+    pub fn active_pane(&self) -> usize {
+        self.active_pane
     }
 }

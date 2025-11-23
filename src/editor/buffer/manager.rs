@@ -66,11 +66,6 @@ impl BufferManager {
         Some(self.buffers.remove(index))
     }
 
-    /// Returns the buffer at the given index.
-    pub fn buffer(&self, index: usize) -> BufferEntry {
-        self.buffers[index].clone()
-    }
-
     /// Saves all open buffers.
     pub fn save_all_buffers(&self) -> Result<(), buffer::Error> {
         for entry in &self.buffers {
@@ -84,20 +79,5 @@ impl BufferManager {
         self.buffers
             .iter()
             .map(|entry| entry.buffer.read().unwrap().file_name())
-    }
-
-    /// Iterate through all panes.
-    pub fn iter(&self) -> impl Iterator<Item = &BufferEntry> {
-        self.buffers.iter()
-    }
-
-    /// Pop the last pane from the list.
-    pub fn pop(&mut self) -> Option<BufferEntry> {
-        self.buffers.pop()
-    }
-
-    /// Returns `true` if the pane list is empty.
-    pub fn is_empty(&self) -> bool {
-        self.buffers.is_empty()
     }
 }

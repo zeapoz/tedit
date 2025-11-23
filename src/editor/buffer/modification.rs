@@ -20,8 +20,6 @@ pub enum BufferAction {
     Insert { start: Point, text: String },
     /// A delete operation containing the range of text that was deleted.
     Delete(ActionRange),
-    /// An append operation containing the indexes of the rows of text that operated on.
-    AppendLineToLine { from: usize, to: usize },
     /// Represents that the buffer was not been modified.
     None,
 }

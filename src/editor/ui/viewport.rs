@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 
-use crate::editor::{geometry::rect::Rect, renderer::frame::{Cell, Frame, Line, Span}};
+use crate::editor::{
+    geometry::rect::Rect,
+    ui::frame::{Cell, Frame, Line, Span},
+};
 
 /// A viewport of a rectangular region of the terminal that can be written to.
 #[derive(Debug, Clone)]
@@ -81,5 +84,10 @@ impl<'a> Viewport<'a> {
     /// Returns the height of the viewport.
     pub fn height(&self) -> usize {
         self.rect.height
+    }
+
+    /// Returns the rect of the viewport.
+    pub fn rect(&self) -> Rect {
+        self.rect
     }
 }

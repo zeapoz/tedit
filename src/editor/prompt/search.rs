@@ -1,10 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
+    geometry::{anchor::Anchor, rect::Rect},
     pane::Pane,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
-    renderer::{
-        Renderable, RenderingContext,
+    ui::{
+        component::{Component, RenderingContext},
         frame::{Line, Span},
         viewport::Viewport,
     },
@@ -53,8 +54,14 @@ impl Prompt for SearchPrompt {
     }
 }
 
-impl Renderable for SearchPrompt {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport) {
+impl Component for SearchPrompt {
+    fn rect(&self, parent: Rect) -> Rect {
+        Rect::new(0, 0, parent.width, 1)
+            .anchored_on(parent, Anchor::BottomLeft)
+            .offset(0, -1)
+    }
+
+    fn render(&mut self, _ctx: &RenderingContext, mut viewport: Viewport) {
         let message = format!("search: {}", self.query);
         viewport.put_line(0, Line::new(viewport.width(), vec![Span::new(&message)]));
     }

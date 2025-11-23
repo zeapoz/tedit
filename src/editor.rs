@@ -3,25 +3,21 @@ use std::{fmt, path::Path};
 use crossterm::event::{Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
 
+use crate::editor::ui::component::status_bar::Message;
 use crate::editor::{
     backend::EditorBackend,
     buffer::{BufferEntry, manager::BufferManager},
     command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
-    geometry::point::Point,
+    geometry::{point::Point, rect::Rect},
     keymap::Keymap,
-    pane::{manager::PaneManager, viewport::Viewport},
+    pane::manager::PaneManager,
     prompt::{
         PromptAction, PromptManager, PromptResponse, PromptStatus, PromptType,
         confirm::ConfirmPrompt,
     },
-    renderer::{
-        Renderer, RenderingContext,
-        compositor::Compositor,
-        layout::{Layout, LayoutContext},
-        style::Color,
-    },
-    status_bar::{Message, StatusBar},
+    renderer::{Renderer, compositor::Compositor},
+    ui::{component::RenderingContext, style::Color},
 };
 
 pub mod backend;
@@ -33,7 +29,7 @@ mod keymap;
 mod pane;
 mod prompt;
 mod renderer;
-mod status_bar;
+pub mod ui;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -78,12 +74,12 @@ pub struct Editor {
     buffer_manager: BufferManager,
     /// The pane manager.
     pane_manager: PaneManager,
-    /// The status bar.
-    status_bar: StatusBar,
     /// The editor backend.
     backend: EditorBackend,
     /// The renderer.
     renderer: Renderer,
+    /// The compositor.
+    compositor: Compositor,
     /// The command registry.
     command_registry: CommandRegistry,
     /// The command palette.
@@ -92,10 +88,11 @@ pub struct Editor {
     keymap: Keymap,
     /// The prompt manager.
     prompt_manager: PromptManager,
-    /// The current stored layour.
-    layout: Layout,
+    // TODO: Make this into new editor state struct.
     /// The current mode.
     pub mode: Mode,
+    /// An optional message to display in the status bar.
+    pub status_message: Option<Message>,
     /// Whether the editor should quit.
     pub should_quit: bool,
 }
@@ -121,7 +118,7 @@ impl Editor {
         };
 
         let mode = Mode::default();
-        let status_bar = StatusBar::default();
+        let compositor = Compositor::default();
 
         // Initialize commands and keybindings.
         let mut command_registry = CommandRegistry::new();
@@ -130,29 +127,24 @@ impl Editor {
         let command_palette = CommandPalette::new(&command_registry);
         let prompt_manager = PromptManager::default();
 
-        // Calculate the initial layout of the editor.
-        let layout_context = LayoutContext::new(&mode, &status_bar, &prompt_manager, &backend);
-        let layout = Layout::calculate(&layout_context);
-
         // Create a new pane and add it to the pane manager.
-        let viewport = Viewport::new(layout.pane_manager.width, layout.pane_manager.height);
-        let mut pane_manager = PaneManager::new(layout.pane_manager);
+        let mut pane_manager = PaneManager::new();
         for buffer in buffers {
-            pane_manager.open_pane(buffer, viewport);
+            pane_manager.open_pane(buffer);
         }
 
         Ok(Self {
             buffer_manager,
             pane_manager,
-            status_bar,
             backend,
             renderer,
+            compositor,
             command_registry,
             command_palette,
             keymap: Keymap::default(),
             prompt_manager,
-            layout,
             mode,
+            status_message: None,
             should_quit: false,
         })
     }
@@ -160,11 +152,7 @@ impl Editor {
     /// Opens a new file and loads its contents into the buffer manager and the pane manager.
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let buffer = self.buffer_manager.open_new_or_existing_file(path)?;
-
-        // TODO: Pane manager sets viewport.
-        let (width, height) = self.backend.size()?;
-        let viewport = Viewport::new(width, height);
-        self.pane_manager.open_pane(buffer, viewport);
+        self.pane_manager.open_pane(buffer);
         Ok(())
     }
 
@@ -212,15 +200,15 @@ impl Editor {
             }
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
+                column: _column,
+                row: _row,
                 ..
             }) => {
                 // TODO: Implement a UI layer to map screen coordinates to components, so we can
                 // redirect mouse events to the correct component.
-                self.pane_manager
-                    .active_mut()
-                    .click(column as usize, row as usize);
+                // self.pane_manager
+                //     .active_mut()
+                //     .click(column as usize, row as usize);
             }
             _ => {}
         }
@@ -280,7 +268,7 @@ impl Editor {
     /// Shows a message in the status bar.
     pub fn show_message(&mut self, s: &str) {
         let message = Message::new(s);
-        self.status_bar.set_message(message);
+        self.status_message = Some(message);
     }
 
     /// Shows an error message in the status bar.
@@ -376,25 +364,26 @@ impl Editor {
 
     /// Updates the state of the editor.
     pub fn update(&mut self) -> Result<()> {
-        self.status_bar.update();
+        // Check if the message has timed out. If so, clear it.
+        if let Some(message) = &self.status_message
+            && message.timed_out()
+        {
+            self.status_message = None;
+        }
 
-        // Calculate the new layout of the editor.
-        let layout_context = LayoutContext::from(&*self);
-        self.layout = Layout::calculate(&layout_context);
-
-        let active_pane = self.pane_manager.active_mut();
-        active_pane.update_viewport(
-            self.layout.pane_manager.width,
-            self.layout.pane_manager.height,
-        );
-        active_pane.scroll_to_cursor();
         Ok(())
     }
 
     /// Creates a new rendering context from the editor and calls the renderer.
     pub fn render(&mut self) -> Result<()> {
-        let rendering_context = RenderingContext::from(&*self);
-        let frame = Compositor::compose_frame(&rendering_context, &self.layout);
+        let (width, height) = self.backend.size()?;
+        let editor_view = Rect::new(0, 0, width, height);
+        let rendering_context = RenderingContext::new(&*self, editor_view);
+        let frame = self.compositor.compose_frame(
+            &rendering_context,
+            &mut self.prompt_manager,
+            &mut self.command_palette,
+        );
         self.renderer.render(frame)?;
         Ok(())
     }

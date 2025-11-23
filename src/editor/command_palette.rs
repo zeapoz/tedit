@@ -1,7 +1,8 @@
 use crate::editor::{
     command::{Command, CommandArgs, CommandRegistry},
-    renderer::{
-        Renderable, RenderingContext,
+    geometry::rect::Rect,
+    ui::{
+        component::{Component, RenderingContext},
         frame::{Line, Span},
         style::Style,
         viewport::Viewport,
@@ -14,6 +15,7 @@ pub struct CommandInfo {
     /// The name of the command.
     pub name: &'static str,
     /// A description of the command.
+    #[allow(dead_code)]
     pub description: &'static str,
 }
 
@@ -171,8 +173,17 @@ impl CommandPalette {
     }
 }
 
-impl Renderable for CommandPalette {
-    fn render(&self, _ctx: &RenderingContext, mut viewport: Viewport) {
+impl Component for CommandPalette {
+    fn rect(&self, parent: Rect) -> Rect {
+        Rect::new(
+            0,
+            0,
+            parent.width,
+            parent.height.saturating_sub(1),
+        )
+    }
+
+    fn render(&mut self, _ctx: &RenderingContext, mut viewport: Viewport) {
         // Render the query prompt.
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
         viewport.put_line(

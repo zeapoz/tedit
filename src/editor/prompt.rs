@@ -2,16 +2,19 @@ use crossterm::event::KeyEvent;
 
 use crate::editor::{
     self, Editor,
-    geometry::point::Point,
+    geometry::{point::Point, rect::Rect},
     prompt::{confirm::ConfirmPrompt, search::SearchPrompt},
-    renderer::{Renderable, RenderingContext, viewport::Viewport},
+    ui::{
+        component::{Component, RenderingContext},
+        viewport::Viewport,
+    },
 };
 
 pub mod confirm;
 pub mod search;
 
 /// A trait for defining prompts.
-pub trait Prompt: Clone + Renderable {
+pub trait Prompt: Clone + Component {
     /// Handles an input event and returns a [`PromptStatus`] indicating whether the prompt should
     /// return or continue.
     fn process_key(&mut self, event: &KeyEvent) -> PromptStatus;
@@ -47,8 +50,16 @@ impl PromptType {
         }
     }
 
+    /// Calculates the area of the prompt.
+    pub fn rect(&self, parent: Rect) -> Rect {
+        match self {
+            Self::Confirm(prompt) => prompt.rect(parent),
+            Self::Search(prompt) => prompt.rect(parent),
+        }
+    }
+
     /// Calls the types render method.
-    pub fn render(&self, ctx: &RenderingContext, viewport: Viewport) {
+    pub fn render(&mut self, ctx: &RenderingContext, viewport: Viewport) {
         match self {
             Self::Confirm(prompt) => prompt.render(ctx, viewport),
             Self::Search(prompt) => prompt.render(ctx, viewport),

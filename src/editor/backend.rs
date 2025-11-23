@@ -5,10 +5,10 @@ use crossterm::{
     event::{self, Event},
     queue,
     style::{self, Attribute},
-    terminal::{self, ClearType},
+    terminal,
 };
 
-use crate::editor::renderer::style::{Color, FontIntensity, ResolvedStyle};
+use crate::editor::ui::style::{Color, FontIntensity, ResolvedStyle};
 
 pub type Error = io::Error;
 
@@ -60,18 +60,6 @@ impl RenderingBackend {
             event::DisableMouseCapture
         )?;
         terminal::disable_raw_mode()?;
-        Ok(())
-    }
-
-    /// Clears the current line.
-    pub fn clear_line(&mut self) -> Result<()> {
-        queue!(self.stdout, terminal::Clear(ClearType::CurrentLine))?;
-        Ok(())
-    }
-
-    /// Clears the terminal viewport.
-    pub fn clear_all(&mut self) -> Result<()> {
-        queue!(self.stdout, terminal::Clear(ClearType::All))?;
         Ok(())
     }
 

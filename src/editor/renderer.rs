@@ -1,58 +1,10 @@
 use crate::editor::{
-    Editor, Mode,
-    backend::{self, RenderingBackend},
-    command_palette::CommandPalette,
-    pane::manager::PaneManager,
-    prompt::PromptType,
-    renderer::{
-        frame::{Cell, Frame, diff::FrameDiff},
-        viewport::Viewport,
-    },
-    status_bar::StatusBar,
+    backend::{self, RenderingBackend}, geometry::point::Point, ui::frame::{Cell, Frame, FrameDiff}
 };
 
 pub mod compositor;
-pub mod frame;
-pub mod layout;
-pub mod style;
-pub mod viewport;
 
-// TODO: Make this cheaper to create. Instead of cloning everything, just clone the state needed
-// for rendering.
-/// A context for rendering objects.
-pub struct RenderingContext {
-    pub mode: Mode,
-    pub pane_manager: PaneManager,
-    pub status_bar: StatusBar,
-    pub prompt: Option<PromptType>,
-    pub command_palette: CommandPalette,
-}
-
-impl<'a> From<&'a Editor> for RenderingContext {
-    fn from(value: &'a Editor) -> Self {
-        let prompt = value
-            .prompt_manager
-            .active_prompt
-            .as_ref()
-            .map(|active| active.prompt.clone());
-
-        Self {
-            mode: value.mode,
-            pane_manager: value.pane_manager.clone(),
-            status_bar: value.status_bar.clone(),
-            prompt,
-            command_palette: value.command_palette.clone(),
-        }
-    }
-}
-
-/// A trait for types that can be rendered to the terminal.
-pub trait Renderable {
-    /// Renders the object to the terminal.
-    fn render(&self, ctx: &RenderingContext, viewport: Viewport);
-}
-
-/// Responsible for rendering frames to the terminal.
+// Responsible for rendering frames to the terminal.
 #[derive(Debug)]
 pub struct Renderer {
     backend: RenderingBackend,
@@ -93,7 +45,7 @@ impl Renderer {
             }
         }
 
-        if let Some((col, row)) = frame.cursor_position() {
+        if let Some(Point { col, row }) = frame.cursor_position() {
             self.backend.move_cursor(col, row)?;
             self.backend.show_cursor()?;
         }

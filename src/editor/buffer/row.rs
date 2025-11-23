@@ -1,5 +1,3 @@
-use crate::editor::pane::viewport::Viewport;
-
 #[derive(Debug, Default, Clone)]
 pub struct Row {
     /// The text of the row.
@@ -67,11 +65,11 @@ impl Row {
         offset_text.find(s).map(|x| x + offset)
     }
 
-    /// Returns a `String` of the characters that should be visible on screen given a [`Viewport`].
-    pub fn visible_chars(&self, viewport: &Viewport) -> String {
+    /// Returns a `String` of the characters in a specific range.
+    pub fn chars_in_range(&self, start: usize, end: usize) -> String {
         self.chars()
-            .skip(viewport.col_offset)
-            .take(viewport.width())
+            .skip(start)
+            .take(end.saturating_sub(start))
             .collect()
     }
 

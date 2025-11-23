@@ -1,8 +1,10 @@
-use crate::editor::renderer::{
-    Renderable, RenderingContext,
-    frame::{Line, Span},
-    style::{Color, Style},
-    viewport::Viewport,
+use crate::editor::{
+    pane::Pane,
+    ui::{
+        frame::{Line, Span},
+        style::{Color, Style},
+        viewport::Viewport,
+    },
 };
 
 // TODO: Make this adapt to the current buffer/be configurable.
@@ -31,23 +33,21 @@ impl Gutter {
     pub fn width(&self) -> usize {
         self.width
     }
-}
 
-impl Renderable for Gutter {
-    fn render(&self, ctx: &RenderingContext, mut viewport: Viewport) {
-        let active_pane = ctx.pane_manager.active();
-        let cursor_row = active_pane.cursor_position().1;
+    /// Renders the gutter.
+    pub fn render(&self, pane: &Pane, row_offset: usize, mut viewport: Viewport) {
+        let cursor_row = pane.cursor_position().1;
         for row in 0..viewport.height() {
             // Reserve two spaces at the end of the gutter.
             let padding_width = self.width.saturating_sub(2);
-            let pane_row = active_pane.viewport.row_offset + row;
+            let pane_row = row_offset + row;
             let s = format!(
                 "{:>width$}  ",
                 pane_row.saturating_add(1),
                 width = padding_width
             );
 
-            let style = if cursor_row == row {
+            let style = if cursor_row == pane_row {
                 Style::new().bold().fg(Color::DarkYellow)
             } else {
                 Style::default()
