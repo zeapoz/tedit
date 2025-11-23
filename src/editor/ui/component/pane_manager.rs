@@ -67,7 +67,7 @@ impl Component for PaneManagerView {
 
         for (pane, pane_view) in ctx.pane_manager.iter().zip(self.pane_views.iter_mut()) {
             let pane_viewport = viewport.sub_rect(pane_view.rect).unwrap();
-            pane_view.render(pane, pane_viewport);
+            pane_view.render(ctx, pane, pane_viewport);
         }
     }
 }

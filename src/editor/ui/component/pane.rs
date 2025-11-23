@@ -2,8 +2,9 @@ use crate::editor::{
     geometry::{point::Point, rect::Rect},
     pane::{Pane, cursor::Cursor},
     ui::{
-        component::gutter::Gutter,
+        component::{RenderingContext, gutter::Gutter},
         frame::{Line, Span},
+        theme::highlight_group::HL_UI_PANE,
         viewport::Viewport,
     },
 };
@@ -131,19 +132,24 @@ impl PaneView {
     }
 
     /// Renders the pane view.
-    pub fn render(&mut self, pane: &Pane, mut viewport: Viewport) {
+    pub fn render(&mut self, ctx: &RenderingContext, pane: &Pane, mut viewport: Viewport) {
         self.scroll_to_cursor(&pane.cursor);
 
         let (gutter_viewport, mut buffer_viewport) =
             viewport.split_horizontally_exact(self.gutter.width());
 
         // Render the gutter.
-        self.gutter.render(pane, self.row_offset, gutter_viewport);
+        self.gutter
+            .render(ctx, pane, self.row_offset, gutter_viewport);
 
         // Render the buffer content.
         let rows = self.visible_rows(pane);
+        let style = ctx.theme.resolve(&HL_UI_PANE);
         for (i, row) in rows.iter().enumerate() {
-            buffer_viewport.put_line(i, Line::new(buffer_viewport.width(), vec![Span::new(row)]));
+            buffer_viewport.put_line(
+                i,
+                Line::new(buffer_viewport.width(), vec![Span::new(row)]).with_style(style),
+            );
         }
     }
 }

@@ -4,6 +4,10 @@ use crossterm::event::{Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
 
 use crate::editor::ui::component::status_bar::Message;
+use crate::editor::ui::theme::Theme;
+use crate::editor::ui::theme::highlight_group::{
+    HL_UI_STATUSBAR_MODE_COMMAND, HL_UI_STATUSBAR_MODE_INSERT, HighlightGroup,
+};
 use crate::editor::{
     backend::EditorBackend,
     buffer::{BufferEntry, manager::BufferManager},
@@ -50,11 +54,11 @@ pub enum Mode {
     Command,
 }
 
-impl From<Mode> for Color {
+impl From<Mode> for HighlightGroup {
     fn from(value: Mode) -> Self {
         match value {
-            Mode::Insert => Color::Green,
-            Mode::Command => Color::Blue,
+            Mode::Insert => HL_UI_STATUSBAR_MODE_INSERT,
+            Mode::Command => HL_UI_STATUSBAR_MODE_COMMAND,
         }
     }
 }
@@ -88,6 +92,8 @@ pub struct Editor {
     keymap: Keymap,
     /// The prompt manager.
     prompt_manager: PromptManager,
+    /// The theme.
+    theme: Theme,
     // TODO: Make this into new editor state struct.
     /// The current mode.
     pub mode: Mode,
@@ -143,6 +149,7 @@ impl Editor {
             command_palette,
             keymap: Keymap::default(),
             prompt_manager,
+            theme: Theme::fallback(),
             mode,
             status_message: None,
             should_quit: false,

@@ -1,8 +1,10 @@
 use crate::editor::{
     pane::Pane,
     ui::{
+        component::RenderingContext,
         frame::{Line, Span},
         style::{Color, Style},
+        theme::highlight_group::{HL_UI_PANE_GUTTER, HL_UI_PANE_GUTTER_CURSOR},
         viewport::Viewport,
     },
 };
@@ -35,7 +37,13 @@ impl Gutter {
     }
 
     /// Renders the gutter.
-    pub fn render(&self, pane: &Pane, row_offset: usize, mut viewport: Viewport) {
+    pub fn render(
+        &self,
+        ctx: &RenderingContext,
+        pane: &Pane,
+        row_offset: usize,
+        mut viewport: Viewport,
+    ) {
         let cursor_row = pane.cursor_position().1;
         for row in 0..viewport.height() {
             // Reserve two spaces at the end of the gutter.
@@ -48,9 +56,9 @@ impl Gutter {
             );
 
             let style = if cursor_row == pane_row {
-                Style::new().bold().fg(Color::DarkYellow)
+                ctx.theme.resolve(&HL_UI_PANE_GUTTER_CURSOR)
             } else {
-                Style::default()
+                ctx.theme.resolve(&HL_UI_PANE_GUTTER)
             };
 
             viewport.put_line(

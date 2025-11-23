@@ -56,7 +56,7 @@ impl<'a> Line<'a> {
             .as_slice()
             .iter()
             .flat_map(|&(mut s)| {
-                s.style = s.style.merge(self.style);
+                s.style.apply(self.style);
                 s.as_cells()
             })
             .collect();
@@ -132,6 +132,12 @@ impl Cell {
         self.style = style;
         self
     }
+
+    /// Applies the given cell over the current cell.
+    pub fn apply(&mut self, other: &Cell) {
+        self.char = other.char;
+        self.style.force_apply(other.style);
+    }
 }
 
 /// Represents a single frame of the cells to render.
@@ -160,6 +166,11 @@ impl Frame {
     pub fn put_cell(&mut self, col: usize, row: usize, cell: Cell) {
         let index = row * self.width + col;
         self.cells[index] = cell;
+    }
+
+    pub fn cell_mut(&mut self, col: usize, row: usize) -> &mut Cell {
+        let index = row * self.width + col;
+        &mut self.cells[index]
     }
 
     /// Sets the cursor position for this frame.

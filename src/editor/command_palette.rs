@@ -5,6 +5,7 @@ use crate::editor::{
         component::{Component, RenderingContext},
         frame::{Line, Span},
         style::Style,
+        theme::highlight_group::{HL_UI_COMMAND_PROMPT, HL_UI_COMMAND_PROMPT_SELECTED},
         viewport::Viewport,
     },
 };
@@ -175,20 +176,16 @@ impl CommandPalette {
 
 impl Component for CommandPalette {
     fn rect(&self, parent: Rect) -> Rect {
-        Rect::new(
-            0,
-            0,
-            parent.width,
-            parent.height.saturating_sub(1),
-        )
+        Rect::new(0, 0, parent.width, parent.height.saturating_sub(1))
     }
 
-    fn render(&mut self, _ctx: &RenderingContext, mut viewport: Viewport) {
+    fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
         // Render the query prompt.
+        let style = ctx.theme.resolve(&HL_UI_COMMAND_PROMPT);
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
         viewport.put_line(
             viewport.height().saturating_sub(1),
-            Line::new(viewport.width(), vec![Span::new(&text)]),
+            Line::new(viewport.width(), vec![Span::new(&text)]).with_style(style),
         );
 
         // Render the command list above the query prompt.
@@ -199,16 +196,13 @@ impl Component for CommandPalette {
 
                 // TODO: Show description somwhere, maybe in the status bar.
                 let style = if i == self.selected_index {
-                    Style::new().bold()
+                    ctx.theme.resolve(&HL_UI_COMMAND_PROMPT_SELECTED)
                 } else {
-                    Style::default()
+                    ctx.theme.resolve(&HL_UI_COMMAND_PROMPT)
                 };
                 viewport.put_line(
                     row,
-                    Line::new(
-                        viewport.width(),
-                        vec![Span::new(command.name).with_style(style)],
-                    ),
+                    Line::new(viewport.width(), vec![Span::new(command.name)]).with_style(style),
                 );
             }
         }

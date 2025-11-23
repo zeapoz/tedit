@@ -17,22 +17,22 @@ impl<'a> Viewport<'a> {
         Self { rect, frame }
     }
 
-    /// Puts a new cell in the given position. If the position is out of bounds, it will be
+    /// Merges a [`Cell`] with one in the frame. If the position is out of bounds, it will be
     /// ignored.
-    pub fn put_cell(&mut self, col: usize, row: usize, cell: Cell) {
+    pub fn merge_cell(&mut self, col: usize, row: usize, cell: Cell) {
         if col >= self.rect.width || row >= self.rect.height {
             return;
         }
-        self.frame
-            .borrow_mut()
-            .put_cell(col + self.rect.col, row + self.rect.row, cell);
+        let mut frame = self.frame.borrow_mut();
+        let frame_cell = frame.cell_mut(col + self.rect.col, row + self.rect.row);
+        frame_cell.apply(&cell);
     }
 
     /// Puts a new span in the given position. If any cell is out of bounds, it will be ignored.
     pub fn put_span(&mut self, col: usize, row: usize, span: Span) {
         let cells = span.as_cells();
         for (i, cell) in cells.into_iter().enumerate() {
-            self.put_cell(col + i, row, cell);
+            self.merge_cell(col + i, row, cell);
         }
     }
 
@@ -41,7 +41,15 @@ impl<'a> Viewport<'a> {
     pub fn put_line(&mut self, row: usize, line: Line) {
         let cells = line.as_cells();
         for (i, cell) in cells.into_iter().enumerate() {
-            self.put_cell(i, row, cell);
+            self.merge_cell(i, row, cell);
+        }
+    }
+
+    /// Fills the viewport with the given cell.
+    pub fn fill(&mut self, cell: Cell) {
+        let cells = self.rect.width * self.rect.height;
+        for i in 0..cells {
+            self.merge_cell(i % self.rect.width, i / self.rect.width, cell);
         }
     }
 

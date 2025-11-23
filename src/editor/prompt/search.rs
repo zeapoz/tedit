@@ -7,6 +7,7 @@ use crate::editor::{
     ui::{
         component::{Component, RenderingContext},
         frame::{Line, Span},
+        theme::highlight_group::HL_UI_OVERLAY,
         viewport::Viewport,
     },
 };
@@ -61,8 +62,12 @@ impl Component for SearchPrompt {
             .offset(0, -1)
     }
 
-    fn render(&mut self, _ctx: &RenderingContext, mut viewport: Viewport) {
+    fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
+        let style = ctx.theme.resolve(&HL_UI_OVERLAY);
         let message = format!("search: {}", self.query);
-        viewport.put_line(0, Line::new(viewport.width(), vec![Span::new(&message)]));
+        viewport.put_line(
+            0,
+            Line::new(viewport.width(), vec![Span::new(&message)]).with_style(style),
+        );
     }
 }

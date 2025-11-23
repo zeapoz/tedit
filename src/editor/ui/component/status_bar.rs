@@ -6,6 +6,7 @@ use crate::editor::{
         component::{Component, RenderingContext},
         frame::{Line, Span},
         style::Style,
+        theme::highlight_group::HL_UI_STATUSBAR,
         viewport::Viewport,
     },
 };
@@ -82,8 +83,10 @@ impl Component for StatusBar {
     }
 
     fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
+        let style = ctx.theme.resolve(&HL_UI_STATUSBAR);
+
         let mode = format!(" {} ", ctx.mode);
-        let mode_style = Style::new().bold().bg(ctx.mode.into());
+        let mode_style = ctx.theme.resolve(&ctx.mode.into());
 
         let active_pane = ctx.pane_manager.active();
         let file = active_pane.file_name();
@@ -113,7 +116,8 @@ impl Component for StatusBar {
                     Span::new(message),
                 ],
             )
-            .with_separator(" "),
+            .with_separator(" ")
+            .with_style(style),
         );
     }
 }
