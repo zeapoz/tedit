@@ -1,10 +1,9 @@
 use crate::editor::{
     command::{Command, CommandArgs, CommandRegistry},
-    geometry::rect::Rect,
     ui::{
         component::{Component, RenderingContext},
         frame::{Line, Span},
-        style::Style,
+        geometry::rect::Rect,
         theme::highlight_group::{HL_UI_COMMAND_PROMPT, HL_UI_COMMAND_PROMPT_SELECTED},
         viewport::Viewport,
     },

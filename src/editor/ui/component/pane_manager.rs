@@ -1,11 +1,11 @@
 use crate::editor::{
-    geometry::{point::Point, rect::Rect},
     pane::manager::PaneManager,
     ui::{
         component::{
             Component, RenderingContext,
             pane::{BarsLayout, PaneView},
         },
+        geometry::{point::Point, rect::Rect},
         viewport::Viewport,
     },
 };

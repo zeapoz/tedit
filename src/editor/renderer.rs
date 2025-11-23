@@ -1,5 +1,9 @@
 use crate::editor::{
-    backend::{self, RenderingBackend}, geometry::point::Point, ui::frame::{Cell, Frame, FrameDiff}
+    backend::{self, RenderingBackend},
+    ui::{
+        frame::{Cell, Frame, FrameDiff},
+        geometry::point::Point,
+    },
 };
 
 pub mod compositor;

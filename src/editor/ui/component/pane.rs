@@ -1,9 +1,9 @@
 use crate::editor::{
-    geometry::{point::Point, rect::Rect},
     pane::{Pane, cursor::Cursor},
     ui::{
         component::{RenderingContext, gutter::Gutter},
         frame::{Line, Span},
+        geometry::{point::Point, rect::Rect},
         theme::highlight_group::HL_UI_PANE,
         viewport::Viewport,
     },

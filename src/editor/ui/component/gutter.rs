@@ -3,7 +3,6 @@ use crate::editor::{
     ui::{
         component::RenderingContext,
         frame::{Line, Span},
-        style::{Color, Style},
         theme::highlight_group::{HL_UI_PANE_GUTTER, HL_UI_PANE_GUTTER_CURSOR},
         viewport::Viewport,
     },

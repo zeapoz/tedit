@@ -1,4 +1,4 @@
-use crate::editor::geometry::{anchor::Anchor, point::Point};
+use crate::editor::ui::geometry::{anchor::Anchor, point::Point};
 
 /// A rectangle.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

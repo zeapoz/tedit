@@ -3,13 +3,13 @@ use std::cell::RefCell;
 use crate::editor::{
     Mode,
     command_palette::CommandPalette,
-    geometry::rect::Rect,
     prompt::PromptManager,
     ui::{
         component::{
             Component, RenderingContext, pane_manager::PaneManagerView, status_bar::StatusBar,
         },
         frame::{Cell, Frame},
+        geometry::rect::Rect,
         theme::highlight_group::HL_UI,
         viewport::Viewport,
     },

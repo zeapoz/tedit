@@ -1,14 +1,12 @@
 use std::time::{Duration, Instant};
 
-use crate::editor::{
+use crate::editor::ui::{
+    component::{Component, RenderingContext},
+    frame::{Line, Span},
     geometry::{anchor::Anchor, rect::Rect},
-    ui::{
-        component::{Component, RenderingContext},
-        frame::{Line, Span},
-        style::Style,
-        theme::highlight_group::HL_UI_STATUSBAR,
-        viewport::Viewport,
-    },
+    style::Style,
+    theme::highlight_group::HL_UI_STATUSBAR,
+    viewport::Viewport,
 };
 
 #[derive(Debug, Clone)]

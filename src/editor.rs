@@ -3,17 +3,11 @@ use std::{fmt, path::Path};
 use crossterm::event::{Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
 
-use crate::editor::ui::component::status_bar::Message;
-use crate::editor::ui::theme::Theme;
-use crate::editor::ui::theme::highlight_group::{
-    HL_UI_STATUSBAR_MODE_COMMAND, HL_UI_STATUSBAR_MODE_INSERT, HighlightGroup,
-};
 use crate::editor::{
     backend::EditorBackend,
     buffer::{BufferEntry, manager::BufferManager},
     command::{CommandArgs, CommandRegistry, register_commands},
     command_palette::CommandPalette,
-    geometry::{point::Point, rect::Rect},
     keymap::Keymap,
     pane::manager::PaneManager,
     prompt::{
@@ -21,14 +15,23 @@ use crate::editor::{
         confirm::ConfirmPrompt,
     },
     renderer::{Renderer, compositor::Compositor},
-    ui::{component::RenderingContext, style::Color},
+    ui::{
+        component::{RenderingContext, status_bar::Message},
+        geometry::{point::Point, rect::Rect},
+        style::Color,
+        theme::{
+            Theme,
+            highlight_group::{
+                HL_UI_STATUSBAR_MODE_COMMAND, HL_UI_STATUSBAR_MODE_INSERT, HighlightGroup,
+            },
+        },
+    },
 };
 
 pub mod backend;
 mod buffer;
 mod command;
 mod command_palette;
-pub mod geometry;
 mod keymap;
 mod pane;
 mod prompt;

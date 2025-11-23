@@ -1,4 +1,4 @@
-use crate::editor::{geometry::point::Point, ui::style::Style};
+use crate::editor::ui::{geometry::point::Point, style::Style};
 
 /// A line of text containing multiple spans.
 #[derive(Debug, Clone)]

@@ -6,8 +6,8 @@ use crate::editor::{
         BufferEntry, Error,
         modification::{BufferAction, BufferModification},
     },
-    geometry::point::Point,
     pane::cursor::Cursor,
+    ui::geometry::point::Point,
 };
 
 pub mod cursor;

@@ -12,8 +12,8 @@ use crate::editor::{
         modification::{ActionRange, BufferAction},
         row::Row,
     },
-    geometry::point::Point,
     pane::cursor::Cursor,
+    ui::geometry::point::Point,
 };
 
 pub mod manager;

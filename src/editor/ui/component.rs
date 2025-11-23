@@ -1,8 +1,7 @@
 use crate::editor::{
     Editor, Mode,
-    geometry::rect::Rect,
     pane::manager::PaneManager,
-    ui::{component::status_bar::Message, theme::Theme, viewport::Viewport},
+    ui::{component::status_bar::Message, geometry::rect::Rect, theme::Theme, viewport::Viewport},
 };
 
 pub mod gutter;

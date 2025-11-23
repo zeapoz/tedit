@@ -1,12 +1,12 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::editor::{
-    geometry::{anchor::Anchor, rect::Rect},
     pane::Pane,
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
     ui::{
         component::{Component, RenderingContext},
         frame::{Line, Span},
+        geometry::{anchor::Anchor, rect::Rect},
         theme::highlight_group::HL_UI_OVERLAY,
         viewport::Viewport,
     },

@@ -1,4 +1,4 @@
-use crate::editor::geometry::point::Point;
+use crate::editor::ui::geometry::point::Point;
 
 /// Represents a change to a buffer with a specific buffer id.
 #[derive(Debug, Clone, PartialEq, Eq)]

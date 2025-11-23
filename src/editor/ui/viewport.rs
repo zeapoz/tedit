@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 
-use crate::editor::{
+use crate::editor::ui::{
+    frame::{Cell, Frame, Line, Span},
     geometry::rect::Rect,
-    ui::frame::{Cell, Frame, Line, Span},
 };
 
 /// A viewport of a rectangular region of the terminal that can be written to.

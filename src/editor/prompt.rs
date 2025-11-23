@@ -2,10 +2,10 @@ use crossterm::event::KeyEvent;
 
 use crate::editor::{
     self, Editor,
-    geometry::{point::Point, rect::Rect},
     prompt::{confirm::ConfirmPrompt, search::SearchPrompt},
     ui::{
         component::{Component, RenderingContext},
+        geometry::{point::Point, rect::Rect},
         viewport::Viewport,
     },
 };
