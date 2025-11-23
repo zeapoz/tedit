@@ -42,17 +42,6 @@ pub struct PaneView {
 }
 
 impl PaneView {
-    pub fn new(rect: Rect) -> Self {
-        Self {
-            rect,
-            gutter: Gutter::default(),
-            col_offset: 0,
-            row_offset: 0,
-            width: rect.width,
-            height: rect.height,
-        }
-    }
-
     /// Scroll the viewport to the given cursor such that the cursor is visible. Returns
     /// `true` if the viewport was scrolled.
     pub fn scroll_to_cursor(&mut self, cursor: &Cursor) -> bool {
@@ -89,9 +78,11 @@ impl PaneView {
     }
 
     /// Updates the viewport to match the given dimensions.
-    pub fn update_size(&mut self, width: usize, height: usize) {
-        self.width = width;
-        self.height = height;
+    pub fn update_size(&mut self, rect: Rect) {
+        let (_gutter, buffer) = rect.split_vertically_exact(self.gutter.width());
+        self.rect = rect;
+        self.width = buffer.width;
+        self.height = buffer.height;
     }
 
     /// Return the width of the viewport.

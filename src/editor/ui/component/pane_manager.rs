@@ -32,9 +32,7 @@ impl PaneManagerView {
         // Update the rects based on layout.
         let layout = BarsLayout::calculate_layout(num_panes, rect);
         for (view, rect) in self.pane_views.iter_mut().zip(layout.rects.iter()) {
-            view.rect = *rect;
-            view.width = rect.width;
-            view.height = rect.height;
+            view.update_size(*rect);
         }
     }
 
