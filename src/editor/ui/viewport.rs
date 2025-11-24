@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use crate::editor::ui::{
     frame::{Cell, Frame},
     geometry::rect::Rect,
-    text::{Line, Span},
+    widget::{Widget},
 };
 
 /// A viewport of a rectangular region of the terminal that can be written to.
@@ -29,19 +29,10 @@ impl<'a> Viewport<'a> {
         frame_cell.apply(&cell);
     }
 
-    /// Puts a new span in the given position. If any cell is out of bounds, it will be ignored.
-    pub fn put_span(&mut self, col: usize, row: usize, span: Span) {
-        let cells = span.as_cells();
-        for (i, cell) in cells.into_iter().enumerate() {
-            self.merge_cell(col + i, row, cell);
-        }
-    }
-
-    /// Puts a new line in the given position. If the position is out of bounds, it will be
+    /// Puts a new widget in the given position. If the position is out of bounds, it will be
     /// ignored.
-    pub fn put_line(&mut self, row: usize, mut line: Line) {
-        let cells = line.as_cells();
-        for (i, cell) in cells.into_iter().enumerate() {
+    pub fn put_widget<T: Widget>(&mut self, row: usize, widget: T) {
+        for (i, cell) in widget.into_cells().into_iter().enumerate() {
             self.merge_cell(i, row, cell);
         }
     }

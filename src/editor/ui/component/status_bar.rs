@@ -4,9 +4,13 @@ use crate::editor::ui::{
     component::{Component, RenderingContext},
     geometry::{anchor::Anchor, rect::Rect},
     style::Style,
-    text::{Alignment, Line, Section, Span},
     theme::highlight_group::HL_UI_STATUSBAR,
     viewport::Viewport,
+    widget::{
+        Widget,
+        container::{Alignment, Container},
+        span::Span,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -82,7 +86,7 @@ impl Component for StatusBar {
 
     fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
         let style = ctx.theme.resolve(&HL_UI_STATUSBAR);
-        let mode = ctx.mode.to_string();
+        let mode = format!(" {} ", ctx.mode);
         let mode_style = ctx.theme.resolve(&ctx.mode.into());
 
         let active_pane = ctx.pane_manager.active();
@@ -102,29 +106,23 @@ impl Component for StatusBar {
             .map(|m| m.text())
             .unwrap_or_default();
 
-        let left = Section::new(vec![
-            Span::new(&mode)
-                .with_style(mode_style)
-                .with_width(mode.len().saturating_add(2))
-                .with_alignment(Alignment::Center),
+        let left = Container::new(vec![
+            Span::new(&mode).with_style(mode_style),
             Span::new(&file).with_style(file_style),
-        ])
-        .with_alignment(Alignment::Left)
-        .with_whitespace_separator();
+        ]);
 
-        let center = Section::new(vec![Span::new(message)])
-            .with_alignment(Alignment::Center)
-            .with_whitespace_separator();
+        let center = Container::new(vec![Span::new(message)]).with_alignment(Alignment::Center);
 
-        let right = Section::new(vec![Span::new(&cursor_position)])
-            .with_alignment(Alignment::Right)
-            .with_whitespace_separator();
+        let right =
+            Container::new(vec![Span::new(&cursor_position)]).with_alignment(Alignment::Right);
 
-        let line = Line::new(viewport.width())
-            .with_section(left)
-            .with_section(center)
-            .with_section(right)
+        let widget = Container::default()
+            .with_width(Some(viewport.width()))
+            .with_alignment(Alignment::SpaceEvenly)
+            .with_child(left)
+            .with_child(center)
+            .with_child(right)
             .with_style(style);
-        viewport.put_line(0, line);
+        viewport.put_widget(0, widget);
     }
 }

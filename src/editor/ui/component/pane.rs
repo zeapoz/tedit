@@ -3,9 +3,9 @@ use crate::editor::{
     ui::{
         component::{RenderingContext, gutter::Gutter},
         geometry::{point::Point, rect::Rect},
-        text::{Line, Section, Span},
         theme::highlight_group::HL_UI_PANE,
         viewport::Viewport,
+        widget::{Widget, container::Container, span::Span},
     },
 };
 
@@ -137,10 +137,11 @@ impl PaneView {
         let rows = self.visible_rows(pane);
         let style = ctx.theme.resolve(&HL_UI_PANE);
         for (i, row) in rows.iter().enumerate() {
-            let line = Line::new(buffer_viewport.width())
-                .with_section(Section::new(vec![Span::new(row)]))
+            let widget = Container::default()
+                .with_width(Some(buffer_viewport.width()))
+                .with_child(Span::new(row))
                 .with_style(style);
-            buffer_viewport.put_line(i, line);
+            buffer_viewport.put_widget(i, widget);
         }
     }
 }

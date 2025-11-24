@@ -3,9 +3,9 @@ use crate::editor::{
     ui::{
         component::{Component, RenderingContext},
         geometry::rect::Rect,
-        text::{Line, Section, Span},
         theme::highlight_group::{HL_UI_COMMAND_PROMPT, HL_UI_COMMAND_PROMPT_SELECTED},
         viewport::Viewport,
+        widget::{Widget, container::Container, span::Span},
     },
 };
 
@@ -183,10 +183,11 @@ impl Component for CommandPalette {
         let style = ctx.theme.resolve(&HL_UI_COMMAND_PROMPT);
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
 
-        let line = Line::new(viewport.width())
-            .with_section(Section::new(vec![Span::new(&text)]))
+        let widget = Container::default()
+            .with_width(Some(viewport.width()))
+            .with_child(Span::new(&text))
             .with_style(style);
-        viewport.put_line(viewport.height().saturating_sub(1), line);
+        viewport.put_widget(viewport.height().saturating_sub(1), widget);
 
         // Render the command list above the query prompt.
         for i in 0..self.filtered_commands.len() {
@@ -201,10 +202,11 @@ impl Component for CommandPalette {
                     ctx.theme.resolve(&HL_UI_COMMAND_PROMPT)
                 };
 
-                let line = Line::new(viewport.width())
-                    .with_section(Section::new(vec![Span::new(command.name)]))
+                let widget = Container::default()
+                    .with_width(Some(viewport.width()))
+                    .with_child(Span::new(command.name))
                     .with_style(style);
-                viewport.put_line(row, line);
+                viewport.put_widget(row, widget);
             }
         }
     }
