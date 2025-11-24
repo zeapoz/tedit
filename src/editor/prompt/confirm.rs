@@ -4,8 +4,8 @@ use crate::editor::{
     prompt::{Prompt, PromptResponse, PromptStatus},
     ui::{
         component::{Component, RenderingContext},
-        frame::{Line, Span},
         geometry::{anchor::Anchor, rect::Rect},
+        text::{Line, Section, Span},
         theme::highlight_group::HL_UI_OVERLAY,
         viewport::Viewport,
     },
@@ -48,7 +48,9 @@ impl Component for ConfirmPrompt {
         let message = format!("{} [y/n] ", self.message);
         viewport.put_line(
             0,
-            Line::new(viewport.width(), vec![Span::new(&message)]).with_style(style),
+            Line::new(viewport.width())
+                .with_section(Section::new(vec![Span::new(&message)]))
+                .with_style(style),
         );
     }
 }

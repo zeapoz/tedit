@@ -2,9 +2,9 @@ use std::time::{Duration, Instant};
 
 use crate::editor::ui::{
     component::{Component, RenderingContext},
-    frame::{Line, Span},
     geometry::{anchor::Anchor, rect::Rect},
     style::Style,
+    text::{Alignment, Line, Section, Span},
     theme::highlight_group::HL_UI_STATUSBAR,
     viewport::Viewport,
 };
@@ -82,8 +82,7 @@ impl Component for StatusBar {
 
     fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
         let style = ctx.theme.resolve(&HL_UI_STATUSBAR);
-
-        let mode = format!(" {} ", ctx.mode);
+        let mode = ctx.mode.to_string();
         let mode_style = ctx.theme.resolve(&ctx.mode.into());
 
         let active_pane = ctx.pane_manager.active();
@@ -103,19 +102,29 @@ impl Component for StatusBar {
             .map(|m| m.text())
             .unwrap_or_default();
 
-        viewport.put_line(
-            0,
-            Line::new(
-                viewport.width(),
-                vec![
-                    Span::new(&mode).with_style(mode_style),
-                    Span::new(&file).with_style(file_style),
-                    Span::new(&cursor_position),
-                    Span::new(message),
-                ],
-            )
-            .with_separator(" ")
-            .with_style(style),
-        );
+        let left = Section::new(vec![
+            Span::new(&mode)
+                .with_style(mode_style)
+                .with_width(mode.len().saturating_add(2))
+                .with_alignment(Alignment::Center),
+            Span::new(&file).with_style(file_style),
+        ])
+        .with_alignment(Alignment::Left)
+        .with_whitespace_separator();
+
+        let center = Section::new(vec![Span::new(message)])
+            .with_alignment(Alignment::Center)
+            .with_whitespace_separator();
+
+        let right = Section::new(vec![Span::new(&cursor_position)])
+            .with_alignment(Alignment::Right)
+            .with_whitespace_separator();
+
+        let line = Line::new(viewport.width())
+            .with_section(left)
+            .with_section(center)
+            .with_section(right)
+            .with_style(style);
+        viewport.put_line(0, line);
     }
 }

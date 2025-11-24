@@ -5,8 +5,8 @@ use crate::editor::{
     prompt::{Prompt, PromptAction, PromptResponse, PromptStatus},
     ui::{
         component::{Component, RenderingContext},
-        frame::{Line, Span},
         geometry::{anchor::Anchor, rect::Rect},
+        text::{Line, Section, Span},
         theme::highlight_group::HL_UI_OVERLAY,
         viewport::Viewport,
     },
@@ -67,7 +67,9 @@ impl Component for SearchPrompt {
         let message = format!("search: {}", self.query);
         viewport.put_line(
             0,
-            Line::new(viewport.width(), vec![Span::new(&message)]).with_style(style),
+            Line::new(viewport.width())
+                .with_section(Section::new(vec![Span::new(&message)]))
+                .with_style(style),
         );
     }
 }

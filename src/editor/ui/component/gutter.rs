@@ -2,7 +2,7 @@ use crate::editor::{
     pane::Pane,
     ui::{
         component::RenderingContext,
-        frame::{Line, Span},
+        text::{Line, Section, Span},
         theme::highlight_group::{HL_UI_PANE_GUTTER, HL_UI_PANE_GUTTER_CURSOR},
         viewport::Viewport,
     },
@@ -60,10 +60,10 @@ impl Gutter {
                 ctx.theme.resolve(&HL_UI_PANE_GUTTER)
             };
 
-            viewport.put_line(
-                row,
-                Line::new(viewport.width(), vec![Span::new(&s)]).with_style(style),
-            );
+            let line = Line::new(viewport.width())
+                .with_section(Section::new(vec![Span::new(&s)]))
+                .with_style(style);
+            viewport.put_line(row, line);
         }
     }
 }

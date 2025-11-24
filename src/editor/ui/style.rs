@@ -119,9 +119,9 @@ impl Style {
         self.underline = other.underline.or(self.underline);
     }
 
-    /// Merges the given style with this style. Only unset values in the current style will get
+    /// Applies the given style with this style. Only unset values in the current style will get
     /// overwritten by the given style.
-    pub fn merge(mut self, other: Self) -> Self {
+    pub fn applied(mut self, other: Self) -> Self {
         self.fg = self.fg.or(other.fg);
         self.bg = self.bg.or(other.bg);
         self.intensity = self.intensity.or(other.intensity);

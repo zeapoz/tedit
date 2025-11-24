@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 
 use crate::editor::ui::{
-    frame::{Cell, Frame, Line, Span},
+    frame::{Cell, Frame},
     geometry::rect::Rect,
+    text::{Line, Span},
 };
 
 /// A viewport of a rectangular region of the terminal that can be written to.
@@ -38,7 +39,7 @@ impl<'a> Viewport<'a> {
 
     /// Puts a new line in the given position. If the position is out of bounds, it will be
     /// ignored.
-    pub fn put_line(&mut self, row: usize, line: Line) {
+    pub fn put_line(&mut self, row: usize, mut line: Line) {
         let cells = line.as_cells();
         for (i, cell) in cells.into_iter().enumerate() {
             self.merge_cell(i, row, cell);
