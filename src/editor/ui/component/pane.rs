@@ -5,7 +5,7 @@ use crate::editor::{
         geometry::{point::Point, rect::Rect},
         theme::highlight_group::HL_UI_PANE,
         viewport::Viewport,
-        widget::{Widget, container::Container, span::Span},
+        widget::{container::ContainerBuilder, span::Span},
     },
 };
 
@@ -138,10 +138,10 @@ impl PaneView {
         let style = ctx.theme.resolve(&HL_UI_PANE);
         for (i, row) in rows.iter().enumerate() {
             let span = Span::new(row);
-            let widget = Container::default()
+            let widget = ContainerBuilder::default()
                 .with_width(Some(buffer_viewport.width()))
                 .with_child(span)
-                .with_style(style);
+                .with_style(style).build();
             buffer_viewport.put_widget(i, widget);
         }
     }

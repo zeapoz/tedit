@@ -5,8 +5,7 @@ use crate::editor::{
         theme::highlight_group::{HL_UI_PANE_GUTTER, HL_UI_PANE_GUTTER_CURSOR},
         viewport::Viewport,
         widget::{
-            Widget,
-            container::{Alignment, Container},
+            container::{Alignment, ContainerBuilder},
             span::Span,
         },
     },
@@ -65,11 +64,12 @@ impl Gutter {
             };
 
             let span = Span::new(&s);
-            let widget = Container::default()
+            let widget = ContainerBuilder::default()
                 .with_width(Some(viewport.width()))
                 .with_child(span)
                 .with_alignment(Alignment::Center)
-                .with_style(style);
+                .with_style(style)
+                .build();
             viewport.put_widget(row, widget);
         }
     }

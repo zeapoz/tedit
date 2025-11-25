@@ -1,4 +1,8 @@
-use crate::editor::ui::{frame::Cell, style::Style, widget::Widget};
+use crate::editor::ui::{
+    frame::Cell,
+    style::Style,
+    widget::{Widget, separator::WhitespaceSeparator},
+};
 
 /// The alignment strategy of a container.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -14,9 +18,8 @@ pub enum Alignment {
     SpaceEvenly,
 }
 
-/// A container that can hold objects.
 #[derive(Default)]
-pub struct Container {
+pub struct ContainerBuilder {
     /// The width of the container. If `None`, the container will be flexible.
     pub width: Option<usize>,
     /// The children of the container.
@@ -27,7 +30,7 @@ pub struct Container {
     pub alignment: Alignment,
 }
 
-impl Container {
+impl ContainerBuilder {
     /// Adds a new child to the container.
     pub fn with_child(mut self, child: impl Widget + 'static) -> Self {
         self.children.push(Box::new(child));
@@ -58,6 +61,51 @@ impl Container {
     /// Sets the style of the container.
     pub fn with_style(mut self, style: Style) -> Self {
         self.style = style;
+        self
+    }
+
+    /// Builds the container.
+    pub fn build(self) -> Container {
+        Container {
+            width: self.width,
+            children: self.children,
+            style: self.style,
+            alignment: self.alignment,
+        }
+    }
+}
+
+/// A container that can hold objects.
+#[derive(Default)]
+pub struct Container {
+    /// The width of the container. If `None`, the container will be flexible.
+    pub width: Option<usize>,
+    /// The children of the container.
+    pub children: Vec<Box<dyn Widget + 'static>>,
+    /// The style of the container.
+    pub style: Style,
+    /// How the container aligns it's children.
+    pub alignment: Alignment,
+}
+
+impl Container {
+    /// Inserts a whitespace separator widget between all children.
+    pub fn with_whitespace_separator(mut self, width: usize) -> Self {
+        let n = self.children.len();
+        if n <= 1 {
+            return self;
+        }
+
+        let mut separated = Vec::with_capacity(n * 2 - 1);
+        for (i, child) in self.children.into_iter().enumerate() {
+            if i > 0 {
+                let separator: Box<dyn Widget> = Box::new(WhitespaceSeparator::new(width));
+                separated.push(separator);
+            }
+            separated.push(child);
+        }
+
+        self.children = separated;
         self
     }
 

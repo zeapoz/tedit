@@ -5,7 +5,7 @@ use crate::editor::{
         geometry::rect::Rect,
         theme::highlight_group::{HL_UI_COMMAND_PROMPT, HL_UI_COMMAND_PROMPT_SELECTED},
         viewport::Viewport,
-        widget::{Widget, container::Container, span::Span},
+        widget::{container::ContainerBuilder, span::Span},
     },
 };
 
@@ -184,10 +184,10 @@ impl Component for CommandPalette {
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
 
         let span = Span::new(&text);
-        let widget = Container::default()
+        let widget = ContainerBuilder::default()
             .with_width(Some(viewport.width()))
             .with_child(span)
-            .with_style(style);
+            .with_style(style).build();
         viewport.put_widget(viewport.height().saturating_sub(1), widget);
 
         // Render the command list above the query prompt.
@@ -204,10 +204,10 @@ impl Component for CommandPalette {
                 };
 
                 let span = Span::new(command.name);
-                let widget = Container::default()
+                let widget = ContainerBuilder::default()
                     .with_width(Some(viewport.width()))
                     .with_child(span)
-                    .with_style(style);
+                    .with_style(style).build();
                 viewport.put_widget(row, widget);
             }
         }

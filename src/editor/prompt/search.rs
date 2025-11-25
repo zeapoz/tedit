@@ -8,7 +8,7 @@ use crate::editor::{
         geometry::{anchor::Anchor, rect::Rect},
         theme::highlight_group::HL_UI_OVERLAY,
         viewport::Viewport,
-        widget::{Widget, container::Container, span::Span},
+        widget::{container::ContainerBuilder, span::Span},
     },
 };
 
@@ -67,10 +67,10 @@ impl Component for SearchPrompt {
         let message_str = format!("search: {}", self.query);
 
         let span = Span::new(&message_str);
-        let widget = Container::default()
+        let widget = ContainerBuilder::default()
             .with_width(Some(viewport.width()))
             .with_child(span)
-            .with_style(style);
+            .with_style(style).build();
         viewport.put_widget(0, widget);
     }
 }

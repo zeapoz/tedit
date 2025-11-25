@@ -1,15 +1,16 @@
 use std::time::{Duration, Instant};
 
+mod widget;
+
 use crate::editor::ui::{
-    component::{Component, RenderingContext},
+    component::{
+        Component, RenderingContext,
+        status_bar::widget::{CursorWidget, FileWidget, MessageWidget, ModeWidget},
+    },
     geometry::{anchor::Anchor, rect::Rect},
-    style::Style,
     theme::highlight_group::HL_UI_STATUSBAR,
     viewport::Viewport,
-    widget::{
-        container::{Alignment, Container},
-        span::Span,
-    },
+    widget::container::{Alignment, ContainerBuilder},
 };
 
 #[derive(Debug, Clone)]
@@ -81,58 +82,30 @@ impl Component for StatusBar {
     }
 
     fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
-        // TODO make each displayed thing its own widget module.
         let style = ctx.theme.resolve(&HL_UI_STATUSBAR);
-        let mode = format!(" {} ", ctx.mode);
-        let mode_style = ctx.theme.resolve(&ctx.mode.into());
-
-        let active_pane = ctx.pane_manager.active();
-        let file = active_pane.file_name();
-        let file_style = if active_pane.is_dirty() {
-            Style::new().bold().underline()
-        } else {
-            Style::new().bold()
-        };
-
-        let (cursor_col, cursor_row) = active_pane.cursor_position();
-        let cursor_position_str = format!("{}:{}", cursor_row + 1, cursor_col + 1);
-
-        let message = ctx
-            .status_message
-            .as_ref()
-            .map(|m| m.text().to_string())
-            .unwrap_or_default();
-
-        // Left container.
-        let mode_span = Span::new(&mode).with_style(mode_style);
-        let file_span = Span::new(&file).with_style(file_style);
-
-        let left = Container::default()
-            .with_child(mode_span)
-            .with_child(file_span);
-
-        // Center container.
-        let message_span = Span::new(&message);
-
-        let center = Container::default()
-            .with_child(message_span)
-            .with_alignment(Alignment::Center);
-
-        // Right container.
-        let cursor_span = Span::new(&cursor_position_str);
-
-        let right = Container::default()
-            .with_child(cursor_span)
-            .with_alignment(Alignment::Right);
+        let left_container = ContainerBuilder::default()
+            .with_child(ModeWidget::new(ctx))
+            .with_child(FileWidget::new(ctx))
+            .build()
+            .with_whitespace_separator(1);
+        let center_container = ContainerBuilder::default()
+            .with_child(MessageWidget::new(ctx))
+            .with_alignment(Alignment::Center)
+            .build();
+        let right_container = ContainerBuilder::default()
+            .with_child(CursorWidget::new(ctx))
+            .with_alignment(Alignment::Right)
+            .build();
 
         // Main widget container.
-        let widget = Container::default()
+        let widget = ContainerBuilder::default()
             .with_width(Some(viewport.width()))
             .with_alignment(Alignment::SpaceEvenly)
-            .with_child(left)
-            .with_child(center)
-            .with_child(right)
-            .with_style(style);
+            .with_child(left_container)
+            .with_child(center_container)
+            .with_child(right_container)
+            .with_style(style)
+            .build();
         viewport.put_widget(0, widget);
     }
 }
