@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use crate::editor::ui::{
     frame::{Cell, Frame},
     geometry::rect::Rect,
-    widget::{Widget},
+    widget::Widget,
 };
 
 /// A viewport of a rectangular region of the terminal that can be written to.

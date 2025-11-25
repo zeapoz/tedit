@@ -187,7 +187,8 @@ impl Component for CommandPalette {
         let widget = ContainerBuilder::default()
             .with_width(Some(viewport.width()))
             .with_child(span)
-            .with_style(style).build();
+            .with_style(style)
+            .build();
         viewport.put_widget(viewport.height().saturating_sub(1), widget);
 
         // Render the command list above the query prompt.
@@ -207,7 +208,8 @@ impl Component for CommandPalette {
                 let widget = ContainerBuilder::default()
                     .with_width(Some(viewport.width()))
                     .with_child(span)
-                    .with_style(style).build();
+                    .with_style(style)
+                    .build();
                 viewport.put_widget(row, widget);
             }
         }

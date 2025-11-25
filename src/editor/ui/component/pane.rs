@@ -141,7 +141,8 @@ impl PaneView {
             let widget = ContainerBuilder::default()
                 .with_width(Some(buffer_viewport.width()))
                 .with_child(span)
-                .with_style(style).build();
+                .with_style(style)
+                .build();
             buffer_viewport.put_widget(i, widget);
         }
     }

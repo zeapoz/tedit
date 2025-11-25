@@ -51,7 +51,8 @@ impl Component for ConfirmPrompt {
         let widget = ContainerBuilder::default()
             .with_width(Some(viewport.width()))
             .with_child(span)
-            .with_style(style).build();
+            .with_style(style)
+            .build();
         viewport.put_widget(0, widget);
     }
 }
