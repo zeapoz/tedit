@@ -126,6 +126,7 @@ impl PaneView {
     pub fn render(&mut self, ctx: &RenderingContext, pane: &Pane, mut viewport: Viewport) {
         self.scroll_to_cursor(&pane.cursor);
 
+        self.gutter.update_width(pane.buffer_lines());
         let (gutter_viewport, mut buffer_viewport) =
             viewport.split_horizontally_exact(self.gutter.width());
 

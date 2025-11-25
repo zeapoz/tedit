@@ -11,10 +11,6 @@ use crate::editor::{
     },
 };
 
-// TODO: Make this adapt to the current buffer/be configurable.
-/// The width of the gutter.
-const GUTTER_WIDTH: usize = 7;
-
 #[derive(Debug, Clone, Copy)]
 pub struct Gutter {
     width: usize,
@@ -23,12 +19,17 @@ pub struct Gutter {
 impl Default for Gutter {
     fn default() -> Self {
         Self {
-            width: GUTTER_WIDTH,
+            width: Self::GUTTER_PADDING,
         }
     }
 }
 
 impl Gutter {
+    // TODO: Gutter padding should be configurable.
+    /// The minimum width of the gutter.
+    const GUTTER_PADDING: usize = 4;
+    const END_OF_BUFFER_MARKER: &'static str = "~";
+
     pub fn new(width: usize) -> Self {
         Self { width }
     }
@@ -36,6 +37,15 @@ impl Gutter {
     /// Returns the width of the gutter.
     pub fn width(&self) -> usize {
         self.width
+    }
+
+    /// Updates the width to be at least as wide as the digits of `buffer_lines`.
+    pub fn update_width(&mut self, buffer_lines: usize) {
+        let digits = buffer_lines
+            .to_string()
+            .len()
+            .saturating_add(Self::GUTTER_PADDING);
+        self.width = self.width.max(digits);
     }
 
     /// Renders the gutter.
@@ -47,14 +57,21 @@ impl Gutter {
         mut viewport: Viewport,
     ) {
         let cursor_row = pane.cursor_position().1;
-        // TODO: Don't display numbers exceeding the buffer height.
+        let buffer_lines = pane.buffer_lines();
         for row in 0..viewport.height() {
             let pane_row = row_offset + row;
+            let line_number = if pane_row < buffer_lines {
+                pane_row.saturating_add(1).to_string()
+            } else if pane_row == buffer_lines.saturating_sub(1) {
+                Self::END_OF_BUFFER_MARKER.to_string()
+            } else {
+                "".to_string()
+            };
+
             let s = format!(
                 "{:>width$}",
-                pane_row.saturating_add(1),
-                // TODO: Get the number of digits from the buffer.
-                width = self.width.saturating_sub(3)
+                line_number,
+                width = self.width.saturating_sub(self.width / 2)
             );
 
             let style = if cursor_row == pane_row {

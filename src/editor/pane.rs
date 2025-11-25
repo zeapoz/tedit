@@ -158,4 +158,9 @@ impl Pane {
     pub fn cursor_position(&self) -> (usize, usize) {
         self.cursor.position()
     }
+
+    /// The number of rows in the buffer.
+    pub fn buffer_lines(&self) -> usize {
+        self.buffer.read().unwrap().num_lines()
+    }
 }

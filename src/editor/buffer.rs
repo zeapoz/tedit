@@ -252,6 +252,11 @@ impl Buffer {
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }
+
+    /// Returns the number of lines in the buffer.
+    pub fn num_lines(&self) -> usize {
+        self.rows.len()
+    }
 }
 
 impl Default for Buffer {
