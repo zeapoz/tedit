@@ -15,38 +15,49 @@ pub enum Alignment {
 }
 
 /// A container that can hold objects.
-#[derive(Debug, Default, Clone)]
-pub struct Container<T: Widget> {
+#[derive(Default)]
+pub struct Container {
     /// The width of the container. If `None`, the container will be flexible.
     pub width: Option<usize>,
-    // TODO: Make this `Vec<Box<dyn Widget>>
     /// The children of the container.
-    pub children: Vec<T>,
+    pub children: Vec<Box<dyn Widget + 'static>>,
     /// The style of the container.
     pub style: Style,
     /// How the container aligns it's children.
     pub alignment: Alignment,
 }
 
-impl<T: Widget> Container<T> {
-    pub fn new(children: Vec<T>) -> Self {
-        Self {
-            width: None,
-            children,
-            style: Style::default(),
-            alignment: Alignment::default(),
-        }
-    }
-
+impl Container {
     /// Adds a new child to the container.
-    pub fn with_child(mut self, child: T) -> Self {
-        self.children.push(child);
+    pub fn with_child(mut self, child: impl Widget + 'static) -> Self {
+        self.children.push(Box::new(child));
         self
     }
 
-    /// Sets the alignment of the containeer.
+    /// Adds multiple children to the container.
+    pub fn with_children(
+        mut self,
+        children: impl IntoIterator<Item = Box<dyn Widget + 'static>>,
+    ) -> Self {
+        self.children.extend(children);
+        self
+    }
+
+    /// Sets the alignment of the container.
     pub fn with_alignment(mut self, alignment: Alignment) -> Self {
         self.alignment = alignment;
+        self
+    }
+
+    /// Sets the width of the container. If `None`, the container will be flexible.
+    pub fn with_width(mut self, width: Option<usize>) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Sets the style of the container.
+    pub fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
         self
     }
 
@@ -74,55 +85,53 @@ impl<T: Widget> Container<T> {
     }
 }
 
-impl<T: Widget> Widget for Container<T> {
-    fn into_cells(self) -> Vec<Cell> {
+impl Widget for Container {
+    fn as_cells(&mut self) -> Vec<Cell> {
         let child_widths = self.calculate_child_widths();
-        let content: Vec<_> = self
-            .children
-            .into_iter()
-            .zip(child_widths)
-            .flat_map(|(child, width)| {
-                let width = width.or_else(|| Some(child.width()));
-                child.with_width(width).with_style(self.style).into_cells()
-            })
-            .collect();
+        let mut cells = Vec::new();
+        for (i, child) in self.children.iter_mut().enumerate() {
+            let width = child_widths[i].or_else(|| Some(child.width()));
+            child.set_width(width);
+            child.set_style(self.style);
+            cells.extend(child.as_cells());
+        }
 
         let pad_cell = Cell::default().with_style(self.style);
-        let width = self.width.unwrap_or(content.len());
+        let width = self.width.unwrap_or(cells.len());
         if width == 0 {
             return Vec::new();
         }
 
         match self.alignment {
             Alignment::Left => {
-                let padding = width.saturating_sub(content.len());
+                let padding = width.saturating_sub(cells.len());
                 let mut out = Vec::with_capacity(width);
-                out.extend(content);
+                out.extend(cells);
                 out.extend(std::iter::repeat(pad_cell).take(padding));
                 out.truncate(width);
                 out
             }
             Alignment::Right => {
-                let padding = width.saturating_sub(content.len());
+                let padding = width.saturating_sub(cells.len());
                 let mut out = Vec::with_capacity(width);
                 out.extend(std::iter::repeat(pad_cell).take(padding));
-                out.extend(content);
+                out.extend(cells);
                 out.truncate(width);
                 out
             }
             Alignment::Center => {
-                let padding = width.saturating_sub(content.len());
+                let padding = width.saturating_sub(cells.len());
                 let left = padding / 2;
                 let right = padding - left;
 
                 let mut out = Vec::with_capacity(width);
                 out.extend(std::iter::repeat(pad_cell.clone()).take(left));
-                out.extend(content);
+                out.extend(cells);
                 out.extend(std::iter::repeat(pad_cell).take(right));
                 out.truncate(width);
                 out
             }
-            Alignment::SpaceEvenly => content,
+            Alignment::SpaceEvenly => cells,
         }
     }
 
@@ -130,13 +139,11 @@ impl<T: Widget> Widget for Container<T> {
         self.children.iter().map(|child| child.width()).sum()
     }
 
-    fn with_width(mut self, width: Option<usize>) -> Self {
+    fn set_width(&mut self, width: Option<usize>) {
         self.width = width;
-        self
     }
 
-    fn with_style(mut self, style: Style) -> Self {
+    fn set_style(&mut self, style: Style) {
         self.style.apply(style);
-        self
     }
 }

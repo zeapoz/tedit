@@ -19,7 +19,7 @@ impl WhitespaceSeparator {
 }
 
 impl Widget for WhitespaceSeparator {
-    fn into_cells(self) -> Vec<Cell> {
+    fn as_cells(&mut self) -> Vec<Cell> {
         std::iter::repeat_n(Cell::default().with_style(self.style), self.width).collect()
     }
     
@@ -27,13 +27,11 @@ impl Widget for WhitespaceSeparator {
         self.width
     }
     
-    fn with_width(mut self, width: Option<usize>) -> Self {
+    fn set_width(&mut self, width: Option<usize>) {
         self.width = width.unwrap_or_default();
-        self
     }
 
-    fn with_style(mut self, style: Style) -> Self {
+    fn set_style(&mut self, style: Style) {
         self.style.apply(style);
-        self
     }
 }

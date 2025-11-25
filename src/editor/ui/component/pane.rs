@@ -137,9 +137,10 @@ impl PaneView {
         let rows = self.visible_rows(pane);
         let style = ctx.theme.resolve(&HL_UI_PANE);
         for (i, row) in rows.iter().enumerate() {
+            let span = Span::new(row);
             let widget = Container::default()
                 .with_width(Some(buffer_viewport.width()))
-                .with_child(Span::new(row))
+                .with_child(span)
                 .with_style(style);
             buffer_viewport.put_widget(i, widget);
         }

@@ -183,9 +183,10 @@ impl Component for CommandPalette {
         let style = ctx.theme.resolve(&HL_UI_COMMAND_PROMPT);
         let text = format!("{}{}", Self::QUERY_PREIFX, self.query);
 
+        let span = Span::new(&text);
         let widget = Container::default()
             .with_width(Some(viewport.width()))
-            .with_child(Span::new(&text))
+            .with_child(span)
             .with_style(style);
         viewport.put_widget(viewport.height().saturating_sub(1), widget);
 
@@ -202,9 +203,10 @@ impl Component for CommandPalette {
                     ctx.theme.resolve(&HL_UI_COMMAND_PROMPT)
                 };
 
+                let span = Span::new(command.name);
                 let widget = Container::default()
                     .with_width(Some(viewport.width()))
-                    .with_child(Span::new(command.name))
+                    .with_child(span)
                     .with_style(style);
                 viewport.put_widget(row, widget);
             }

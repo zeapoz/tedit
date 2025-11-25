@@ -45,13 +45,13 @@ impl Component for ConfirmPrompt {
 
     fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
         let style = ctx.theme.resolve(&HL_UI_OVERLAY);
-        let message = format!("{} [y/n] ", self.message);
-        viewport.put_widget(
-            0,
-            Container::default()
-                .with_width(Some(viewport.width()))
-                .with_child(Span::new(&message))
-                .with_style(style),
-        );
+        let message_str = format!("{} [y/n] ", self.message);
+
+        let span = Span::new(&message_str);
+        let widget = Container::default()
+            .with_width(Some(viewport.width()))
+            .with_child(span)
+            .with_style(style);
+        viewport.put_widget(0, widget);
     }
 }

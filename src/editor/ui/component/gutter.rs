@@ -64,14 +64,13 @@ impl Gutter {
                 ctx.theme.resolve(&HL_UI_PANE_GUTTER)
             };
 
-            viewport.put_widget(
-                row,
-                Container::default()
-                    .with_width(Some(viewport.width()))
-                    .with_child(Span::new(&s))
-                    .with_alignment(Alignment::Center)
-                    .with_style(style),
-            );
+            let span = Span::new(&s);
+            let widget = Container::default()
+                .with_width(Some(viewport.width()))
+                .with_child(span)
+                .with_alignment(Alignment::Center)
+                .with_style(style);
+            viewport.put_widget(row, widget);
         }
     }
 }

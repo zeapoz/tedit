@@ -31,8 +31,8 @@ impl<'a> Viewport<'a> {
 
     /// Puts a new widget in the given position. If the position is out of bounds, it will be
     /// ignored.
-    pub fn put_widget<T: Widget>(&mut self, row: usize, widget: T) {
-        for (i, cell) in widget.into_cells().into_iter().enumerate() {
+    pub fn put_widget<T: Widget + 'static>(&mut self, row: usize, mut widget: T) {
+        for (i, cell) in widget.as_cells().into_iter().enumerate() {
             self.merge_cell(i, row, cell);
         }
     }

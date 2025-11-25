@@ -7,7 +7,6 @@ use crate::editor::ui::{
     theme::highlight_group::HL_UI_STATUSBAR,
     viewport::Viewport,
     widget::{
-        Widget,
         container::{Alignment, Container},
         span::Span,
     },
@@ -66,9 +65,6 @@ impl StatusBar {
     pub fn height(&self) -> usize {
         self.height
     }
-
-    /// Updates the state of the status bar.
-    pub fn update(&mut self) {}
 }
 
 impl Default for StatusBar {
@@ -85,6 +81,7 @@ impl Component for StatusBar {
     }
 
     fn render(&mut self, ctx: &RenderingContext, mut viewport: Viewport) {
+        // TODO make each displayed thing its own widget module.
         let style = ctx.theme.resolve(&HL_UI_STATUSBAR);
         let mode = format!(" {} ", ctx.mode);
         let mode_style = ctx.theme.resolve(&ctx.mode.into());
@@ -98,24 +95,37 @@ impl Component for StatusBar {
         };
 
         let (cursor_col, cursor_row) = active_pane.cursor_position();
-        let cursor_position = format!("{}:{}", cursor_row + 1, cursor_col + 1);
+        let cursor_position_str = format!("{}:{}", cursor_row + 1, cursor_col + 1);
 
         let message = ctx
             .status_message
             .as_ref()
-            .map(|m| m.text())
+            .map(|m| m.text().to_string())
             .unwrap_or_default();
 
-        let left = Container::new(vec![
-            Span::new(&mode).with_style(mode_style),
-            Span::new(&file).with_style(file_style),
-        ]);
+        // Left container.
+        let mode_span = Span::new(&mode).with_style(mode_style);
+        let file_span = Span::new(&file).with_style(file_style);
 
-        let center = Container::new(vec![Span::new(message)]).with_alignment(Alignment::Center);
+        let left = Container::default()
+            .with_child(mode_span)
+            .with_child(file_span);
 
-        let right =
-            Container::new(vec![Span::new(&cursor_position)]).with_alignment(Alignment::Right);
+        // Center container.
+        let message_span = Span::new(&message);
 
+        let center = Container::default()
+            .with_child(message_span)
+            .with_alignment(Alignment::Center);
+
+        // Right container.
+        let cursor_span = Span::new(&cursor_position_str);
+
+        let right = Container::default()
+            .with_child(cursor_span)
+            .with_alignment(Alignment::Right);
+
+        // Main widget container.
         let widget = Container::default()
             .with_width(Some(viewport.width()))
             .with_alignment(Alignment::SpaceEvenly)
