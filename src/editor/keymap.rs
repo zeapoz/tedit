@@ -47,10 +47,12 @@ impl Default for Keymap {
             KeyCode::Down, KeyModifiers::NONE => MoveCursorDown {},
             KeyCode::Home, KeyModifiers::NONE => MoveCursorToStartOfRow {},
             KeyCode::End, KeyModifiers::NONE => MoveCursorToEndOfRow {},
+            KeyCode::Char('b'), KeyModifiers::CONTROL => MoveCursorToStartOfBuffer {},
+            KeyCode::Char('e'), KeyModifiers::CONTROL => MoveCursorToEndOfBuffer {},
             // Text manipulation.
             KeyCode::Enter, KeyModifiers::NONE => InsertNewline {},
             KeyCode::Delete, KeyModifiers::NONE => DeleteChar {},
-            KeyCode::Backspace, KeyModifiers::NONE => DeleteChar {},
+            KeyCode::Backspace, KeyModifiers::NONE => DeleteCharBefore {},
         );
 
         Self { map }

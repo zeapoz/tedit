@@ -6,7 +6,7 @@ use crate::editor::{
         BufferEntry, Error,
         modification::{BufferAction, BufferModification},
     },
-    pane::cursor::Cursor,
+    pane::cursor::{Cursor, CursorMovement},
     ui::geometry::point::Point,
 };
 
@@ -35,7 +35,7 @@ impl Pane {
         let mut buffer = self.buffer.write().unwrap();
         let modification = buffer.insert_char(c, &self.cursor);
         if let BufferAction::Insert { .. } = modification {
-            self.cursor.move_right(&buffer);
+            self.cursor.handle_movement(CursorMovement::Right, &buffer);
         }
 
         BufferModification::new(self.buffer.id, modification)
@@ -45,7 +45,8 @@ impl Pane {
     pub fn insert_newline(&mut self) -> BufferModification {
         let mut buffer = self.buffer.write().unwrap();
         let modification = buffer.insert_newline(&self.cursor);
-        self.cursor.move_to_start_of_next_row(&buffer);
+        self.cursor
+            .handle_movement(CursorMovement::StartOfNextRow, &buffer);
         BufferModification::new(self.buffer.id, modification)
     }
 
@@ -64,13 +65,14 @@ impl Pane {
             let prev_row_len = buffer.row(prev_row).map(|r| r.len()).unwrap_or_default();
 
             let modification = buffer.append_line_to_line(self.cursor.row(), prev_row);
-            self.cursor.move_to(prev_row_len, prev_row, &buffer);
+            self.cursor
+                .handle_movement(CursorMovement::Position(prev_row_len, prev_row), &buffer);
             BufferModification::new(self.buffer_id(), modification)
         } else {
             if self.cursor.col() == 0 && self.cursor.row() == 0 {
                 return BufferModification::new(self.buffer_id(), BufferAction::None);
             }
-            self.cursor.move_left(&buffer);
+            self.cursor.handle_movement(CursorMovement::Left, &buffer);
             let modification = buffer.delete_char(&self.cursor);
             BufferModification::new(self.buffer_id(), modification)
         }
@@ -83,45 +85,10 @@ impl Pane {
         buffer.find_next(s, &self.cursor)
     }
 
-    /// Moves the cursor one column to the left.
-    pub fn move_cursor_left(&mut self) {
+    /// Moves the cursor based on the provided [`CursorMovement`].
+    pub fn move_cursor(&mut self, movement: CursorMovement) {
         let buffer = self.buffer.read().unwrap();
-        self.cursor.move_left(&buffer);
-    }
-
-    /// Moves the cursor one column to the right.
-    pub fn move_cursor_right(&mut self) {
-        let buffer = self.buffer.read().unwrap();
-        self.cursor.move_right(&buffer);
-    }
-
-    /// Moves the cursor one row up.
-    pub fn move_cursor_up(&mut self) {
-        let buffer = self.buffer.read().unwrap();
-        self.cursor.move_up(&buffer);
-    }
-
-    /// Moves the cursor one row down.
-    pub fn move_cursor_down(&mut self) {
-        let buffer = self.buffer.read().unwrap();
-        self.cursor.move_down(&buffer);
-    }
-
-    /// Moves the cursor to the given position.
-    pub fn move_cursor_to(&mut self, col: usize, row: usize) {
-        let buffer = self.buffer.read().unwrap();
-        self.cursor.move_to(col, row, &buffer);
-    }
-
-    /// Moves the cursor to the start of the current row.
-    pub fn move_cursor_to_start_of_row(&mut self) {
-        self.cursor.move_to_start_of_row();
-    }
-
-    /// Moves the cursor to the end of the current row.
-    pub fn move_cursor_to_end_of_row(&mut self) {
-        let buffer = self.buffer.read().unwrap();
-        self.cursor.move_to_end_of_row(&buffer);
+        self.cursor.handle_movement(movement, &buffer);
     }
 
     /// Saves the pane.

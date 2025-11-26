@@ -5,7 +5,7 @@ use crate::editor::{
         BufferEntry,
         modification::{ActionRange, BufferAction, BufferModification},
     },
-    pane::Pane,
+    pane::{Pane, cursor::CursorMovement},
 };
 
 #[derive(Debug, Error)]
@@ -65,10 +65,9 @@ impl PaneManager {
         {
             // Anchor the cursor to the current row.
             if scroll_offset.is_positive() && pane.cursor.row() > row {
-                pane.move_cursor_down();
+                pane.move_cursor(CursorMovement::Down)
             } else if scroll_offset.is_negative() && pane.cursor.row() >= row {
-                pane.move_cursor_up();
-                // pane.scroll_to_cursor();
+                pane.move_cursor(CursorMovement::Up)
             }
 
             // TODO: Handle in UI layer.

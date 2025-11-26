@@ -9,7 +9,7 @@ use crate::editor::{
     command::{CommandRegistry, register_commands},
     command_palette::CommandPalette,
     keymap::Keymap,
-    pane::manager::PaneManager,
+    pane::{cursor::CursorMovement, manager::PaneManager},
     prompt::{
         PromptAction, PromptManager, PromptResponse, PromptStatus, PromptType,
         confirm::ConfirmPrompt,
@@ -231,12 +231,15 @@ impl Editor {
                 KeyCode::Enter => {
                     let command_name = self.command_palette.command_query();
                     match self.command_palette.parse_query(&self.command_registry) {
-                        Some(command) => {
+                        Some(Ok(command)) => {
                             if let Err(err) = command.execute(self) {
                                 self.show_err_message(&err.to_string());
                             }
                         }
-                        None => self.show_err_message(&format!("No such command found: {command_name}")),
+                        Some(Err(e)) => self.show_err_message(&e.to_string()),
+                        None => {
+                            self.show_err_message(&format!("No such command found: {command_name}"))
+                        }
                     }
                     self.exit_command_mode();
                 }
@@ -260,7 +263,9 @@ impl Editor {
                 PromptStatus::Changed => {
                     let action = active.prompt.on_changed();
                     if let PromptAction::MoveCursor(Point { col, row }) = action {
-                        self.pane_manager.active_mut().move_cursor_to(col, row);
+                        self.pane_manager
+                            .active_mut()
+                            .move_cursor(CursorMovement::Position(col, row));
                     }
                 }
                 PromptStatus::Done(response) => {

@@ -1,11 +1,14 @@
 use crate::editor::{
-    command::{Command, CommandRegistry, CommandSpec},
+    command::{self, Command, CommandRegistry, CommandSpec},
     ui::{
         component::{Component, RenderingContext},
         geometry::rect::Rect,
         theme::highlight_group::{HL_UI_COMMAND_PROMPT, HL_UI_COMMAND_PROMPT_SELECTED},
         viewport::Viewport,
-        widget::{container::ContainerBuilder, span::Span},
+        widget::{
+            container::{Alignment, ContainerBuilder},
+            span::Span,
+        },
     },
 };
 
@@ -72,19 +75,26 @@ impl CommandPalette {
     }
 
     /// Returns the name of the command extracted from the current query.
-    pub fn command_query(&self) -> &str {
-        self.query.split_whitespace().next().unwrap_or_default()
+    pub fn command_query(&self) -> String {
+        self.query
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_lowercase()
     }
 
     /// Parses and returns the current query as an executable command.
-    pub fn parse_query(&self, registry: &CommandRegistry) -> Option<Box<dyn Command>> {
+    pub fn parse_query(
+        &self,
+        registry: &CommandRegistry,
+    ) -> Option<Result<Box<dyn Command>, command::Error>> {
         let normalized_query = self.query.to_lowercase();
         let mut parts = normalized_query.splitn(2, char::is_whitespace);
         let command_name = parts.next().unwrap_or_default();
         let raw_args = parts.next().unwrap_or("").trim_start();
 
         if let Some(command) = registry.get(command_name) {
-            command.parse(raw_args).ok()
+            Some(command.parse(raw_args))
         } else {
             None
         }
@@ -97,7 +107,7 @@ impl CommandPalette {
         self.filtered_commands = self
             .commands
             .iter()
-            .filter(|c| c.name.to_lowercase().contains(command_query))
+            .filter(|c| c.name.to_lowercase().contains(&command_query))
             .cloned()
             .collect();
 
@@ -193,6 +203,14 @@ impl Component for CommandPalette {
             .build();
         viewport.put_widget(viewport.height().saturating_sub(1), widget);
 
+        // Calculate the minimum width needed to render the command list.
+        let min_width = self
+            .filtered_commands
+            .iter()
+            .map(|c| c.name.len())
+            .max()
+            .unwrap_or_default();
+
         // Render the command list above the query prompt.
         for i in 0..self.filtered_commands.len() {
             let command = self.filtered_commands.get(i);
@@ -208,7 +226,7 @@ impl Component for CommandPalette {
 
                 let span = Span::new(command.name);
                 let widget = ContainerBuilder::default()
-                    .with_width(Some(viewport.width()))
+                    .with_width(Some(min_width))
                     .with_child(span)
                     .with_style(style)
                     .build();

@@ -1,3 +1,4 @@
+use crate::editor::pane::cursor::CursorMovement;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use define_commands_macro::define_commands;
@@ -158,30 +159,49 @@ define_commands! {
             editor.show_message(&file_names.join(" "));
         }
     },
-    // // Cursor movements.
+    // TODO: Merge these into a single command?
+    // Cursor movements.
     MoveCursorLeft {
         description: "Move the cursor left",
-        handler: { editor.pane_manager.active_mut().move_cursor_left(); }
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::Left); }
     },
     MoveCursorRight {
         description: "Move the cursor right",
-        handler: { editor.pane_manager.active_mut().move_cursor_right(); }
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::Right); }
     },
     MoveCursorUp {
         description: "Move the cursor up",
-        handler: { editor.pane_manager.active_mut().move_cursor_up(); }
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::Up); }
     },
     MoveCursorDown {
         description: "Move the cursor down",
-        handler: { editor.pane_manager.active_mut().move_cursor_down(); }
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::Down); }
     },
     MoveCursorToStartOfRow {
         description: "Move the cursor to the start of the row",
-        handler: { editor.pane_manager.active_mut().move_cursor_to_start_of_row(); }
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::StartOfRow); },
     },
     MoveCursorToEndOfRow {
         description: "Move the cursor to the end of the row",
-        handler: { editor.pane_manager.active_mut().move_cursor_to_end_of_row(); }
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::EndOfRow); }
+    },
+    MoveCursorToStartOfBuffer {
+        description: "Move the cursor to the start of the buffer",
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::StartOfBuffer); }
+    },
+    MoveCursorToEndOfBuffer {
+        description: "Move the cursor to the end of the buffer",
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::EndOfBuffer); }
+    },
+    MoveCursorToLine {
+        description: "Move the cursor to the selected line",
+        args: [ line: usize ],
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::Line(self.line)); }
+    },
+    MoveCursorToPosition {
+        description: "Move the cursor to the given column and row",
+        args: [ col: usize, row: usize ],
+        handler: { editor.pane_manager.active_mut().move_cursor(CursorMovement::Position(self.col, self.row)); }
     },
     // Text manipulation.
     InsertNewline {
