@@ -1,41 +1,58 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-#[derive(Debug)]
+use crate::editor::command::*;
+
+/// Macro to bind keys to commands or actions.
+macro_rules! bind_keys {
+    ( $map:ident, $( $keycode:expr, $modifiers:expr => $command:expr ),* $(,)? ) => {
+        $(
+            $map.insert(
+                KeyEvent::new($keycode, $modifiers),
+                Rc::new(Box::new($command) as Box<dyn Command>),
+            );
+        )*
+    };
+}
+
 pub struct Keymap {
-    map: HashMap<KeyEvent, &'static str>,
+    map: HashMap<KeyEvent, Rc<Box<dyn Command + 'static>>>,
 }
 
 impl Keymap {
     /// Returns the command name for the given key event, or `None` if no command is bound to the
     /// given event.
-    pub fn get(&self, event: &KeyEvent) -> Option<&'static str> {
-        self.map.get(event).copied()
+    pub fn get(&self, event: &KeyEvent) -> Option<&Rc<Box<dyn Command + 'static>>> {
+        self.map.get(event)
     }
 }
 
 #[rustfmt::skip]
 impl Default for Keymap {
     fn default() -> Self {
-        // TODO: Map to action enums instead of command names.
         let mut map = HashMap::new();
-        // Editor actions.
-        map.insert(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL), "quit");
-        map.insert(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL), "save");
-        map.insert(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL), "enter_command_mode");
-        map.insert(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL), "open_search");
-        // Cursor movements.
-        map.insert(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE), "move_cursor_left");
-        map.insert(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE), "move_cursor_right");
-        map.insert(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE), "move_cursor_up");
-        map.insert(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE), "move_cursor_down");
-        map.insert(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE), "move_cursor_to_start_of_row");
-        map.insert(KeyEvent::new(KeyCode::End, KeyModifiers::NONE), "move_cursor_to_end_of_row");
-        // Text manipulation.
-        map.insert(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), "insert_newline");
-        map.insert(KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE), "delete_char");
-        map.insert(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE), "delete_char_before");
+
+        // TODO: Implement default values for key actions.
+        bind_keys!(map,
+            // Editor actions.
+            KeyCode::Char('q'), KeyModifiers::CONTROL => Quit {},
+            KeyCode::Char('s'), KeyModifiers::CONTROL => Save { path: None },
+            KeyCode::Char('p'), KeyModifiers::CONTROL => EnterCommandMode {},
+            KeyCode::Char('f'), KeyModifiers::CONTROL => OpenSearch {},
+            // Cursor movements.
+            KeyCode::Left, KeyModifiers::NONE => MoveCursorLeft {},
+            KeyCode::Right, KeyModifiers::NONE => MoveCursorRight {},
+            KeyCode::Up, KeyModifiers::NONE => MoveCursorUp {},
+            KeyCode::Down, KeyModifiers::NONE => MoveCursorDown {},
+            KeyCode::Home, KeyModifiers::NONE => MoveCursorToStartOfRow {},
+            KeyCode::End, KeyModifiers::NONE => MoveCursorToEndOfRow {},
+            // Text manipulation.
+            KeyCode::Enter, KeyModifiers::NONE => InsertNewline {},
+            KeyCode::Delete, KeyModifiers::NONE => DeleteChar {},
+            KeyCode::Backspace, KeyModifiers::NONE => DeleteChar {},
+        );
+
         Self { map }
     }
 }

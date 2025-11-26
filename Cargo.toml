@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
 crossterm = "0.29.0"
+define_commands_macro = { path = "./define_commands_macro" }
 thiserror = "2.0.17"

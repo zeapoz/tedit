@@ -1,5 +1,5 @@
 use crate::editor::{
-    command::{Command, CommandArgs, CommandRegistry},
+    command::{Command, CommandRegistry, CommandSpec},
     ui::{
         component::{Component, RenderingContext},
         geometry::rect::Rect,
@@ -19,8 +19,8 @@ pub struct CommandInfo {
     pub description: &'static str,
 }
 
-impl From<&dyn Command> for CommandInfo {
-    fn from(value: &dyn Command) -> Self {
+impl From<&dyn CommandSpec> for CommandInfo {
+    fn from(value: &dyn CommandSpec) -> Self {
         CommandInfo {
             name: value.name(),
             description: value.description(),
@@ -76,16 +76,18 @@ impl CommandPalette {
         self.query.split_whitespace().next().unwrap_or_default()
     }
 
-    /// Parses the current query into a command name and its arguments and returns it.
-    pub fn parse_query(&self) -> (String, CommandArgs) {
-        let command = self
-            .get_selected_command()
-            .map(|c| c.name.to_string())
-            .unwrap_or(self.query.clone());
+    /// Parses and returns the current query as an executable command.
+    pub fn parse_query(&self, registry: &CommandRegistry) -> Option<Box<dyn Command>> {
+        let normalized_query = self.query.to_lowercase();
+        let mut parts = normalized_query.splitn(2, char::is_whitespace);
+        let command_name = parts.next().unwrap_or_default();
+        let raw_args = parts.next().unwrap_or("").trim_start();
 
-        let args = self.query.split_whitespace().skip(1).collect::<Vec<_>>();
-        let command_args = CommandArgs::new(args);
-        (command, command_args)
+        if let Some(command) = registry.get(command_name) {
+            command.parse(raw_args).ok()
+        } else {
+            None
+        }
     }
 
     /// Updates the list of filtered commands based on the current query. Uses substring matching
@@ -95,7 +97,7 @@ impl CommandPalette {
         self.filtered_commands = self
             .commands
             .iter()
-            .filter(|c| c.name.contains(command_query))
+            .filter(|c| c.name.to_lowercase().contains(command_query))
             .cloned()
             .collect();
 

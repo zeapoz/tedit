@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
+use define_commands_macro::define_commands;
 use thiserror::Error;
 
 use crate::editor::{
@@ -9,61 +10,37 @@ use crate::editor::{
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Missing argument(s): {0}")]
-    MissingArguments(String),
-    #[error("Too many arguments, expected {expected}")]
-    TooManyArguments { expected: usize },
+    #[error("Missing argument: {0}")]
+    MissingArgument(String),
+    #[error("Invalid argument for {name}: {error}")]
+    InvalidArgument { name: String, error: String },
     #[allow(clippy::enum_variant_names)]
     #[error(transparent)]
     ExecutionError(#[from] editor::Error),
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct CommandArgs {
-    /// Positional arguments.
-    positional: Vec<String>,
-}
-
-impl CommandArgs {
-    /// Returns a new instance with the given positional arguments.
-    pub fn new(positional: Vec<&str>) -> Self {
-        Self {
-            positional: positional.iter().map(|s| s.to_string()).collect(),
-        }
-    }
-
-    /// Gets a positional argument by index.
-    pub fn get_positional(&self, index: usize) -> Option<&str> {
-        self.positional.get(index).map(|s| s.as_str())
-    }
-
-    /// Returns an iterator over all positional arguments.
-    pub fn iter_positional(&self) -> impl Iterator<Item = &String> {
-        self.positional.iter()
-    }
-
-    /// Returns the number of positional arguments.
-    pub fn num_positional(&self) -> usize {
-        self.positional.len()
-    }
-}
-
-/// The `Command` trait defines a command that can be executed by the editor.
-pub trait Command: Debug {
+/// The `CommandSpec` trait defines the specification of a command.
+pub trait CommandSpec {
     /// Returns the name of the command.
     fn name(&self) -> &'static str;
 
     /// Returns a description of the command.
     fn description(&self) -> &'static str;
 
+    /// Parses a string of arguments into a runnable command.
+    fn parse(&self, raw_args: &str) -> Result<Box<dyn Command>, Error>;
+}
+
+/// A command that encompasses a runnable command and its arguments.
+pub trait Command {
     /// Executes the command.
-    fn execute(&self, editor: &mut Editor, args: &CommandArgs) -> Result<(), Error>;
+    fn execute(&self, editor: &mut Editor) -> Result<(), Error>;
 }
 
 /// A registry for all available commands.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct CommandRegistry {
-    commands: HashMap<&'static str, Rc<dyn Command>>,
+    commands: HashMap<String, Rc<dyn CommandSpec>>,
 }
 
 impl CommandRegistry {
@@ -73,59 +50,26 @@ impl CommandRegistry {
     }
 
     /// Registers a new command.
-    pub fn register(&mut self, command: Rc<dyn Command>) {
-        self.commands.insert(command.name(), command);
+    pub fn register(&mut self, command: Rc<dyn CommandSpec>) {
+        self.commands.insert(command.name().to_lowercase(), command);
     }
 
     /// Gets a command by name.
-    pub fn get(&self, name: &str) -> Option<Rc<dyn Command>> {
+    pub fn get(&self, name: &str) -> Option<Rc<dyn CommandSpec>> {
         self.commands.get(name).cloned()
     }
 
     /// Returns an iterator over all commands.
-    pub fn get_all_commands(&self) -> impl Iterator<Item = &Rc<dyn Command>> {
+    pub fn get_all_commands(&self) -> impl Iterator<Item = &Rc<dyn CommandSpec>> {
         self.commands.values()
     }
-}
-
-/// A macro to define and register commands.
-#[macro_export]
-macro_rules! define_commands {
-    ( $( $command_name:ident { name: $name:expr, description: $description:expr, handler: $handler:expr $(,)? } ),* $(,)? ) => {
-        $(
-            #[derive(Debug)]
-            pub struct $command_name;
-
-            impl $crate::editor::command::Command for $command_name {
-                fn name(&self) -> &'static str {
-                    $name
-                }
-
-                fn description(&self) -> &'static str {
-                    $description
-                }
-
-                fn execute(&self, editor: &mut $crate::editor::Editor, args: &$crate::editor::command::CommandArgs) -> Result<(), $crate::editor::command::Error> {
-                    let f: fn(&mut $crate::editor::Editor, &$crate::editor::command::CommandArgs) -> Result<(), $crate::editor::command::Error> = $handler;
-                    f(editor, args)
-                }
-            }
-        )*
-
-        pub fn register_commands(registry: &mut $crate::editor::command::CommandRegistry) {
-            $(
-                registry.register(Rc::new($command_name));
-            )*
-        }
-    };
 }
 
 define_commands! {
     // Editor actions.
     Quit {
-        name: "quit",
         description: "Quit the editor",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             if !editor.pane_manager.iter().any(|d| d.is_dirty()) {
                 editor.should_quit = true;
             } else {
@@ -144,26 +88,16 @@ define_commands! {
                     }
                 );
             }
-            Ok(())
         }
     },
     Save {
-        name: "save",
         description: "Save the current pane",
-        handler: |editor: &mut Editor, args: &CommandArgs| {
-            if args.num_positional() > 1 {
-                return Err(Error::TooManyArguments { expected: 1 });
-            }
-
-            let path = args.get_positional(0);
-            editor.save_active_buffer(path)?;
-            Ok(())
-        }
+        args: [ path: Option<String> ],
+        handler: { editor.save_active_buffer(self.path.clone())?; }
     },
     OpenSearch {
-        name: "open_search",
         description: "Open a search prompt",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             editor.prompt_manager.show_prompt(
                 PromptType::Search(SearchPrompt::new(editor.pane_manager.active_mut().clone())),
                 |editor, response| {
@@ -176,165 +110,99 @@ define_commands! {
                     Ok(())
                 }
             );
-            Ok(())
         }
     },
     EnterInsertMode {
-        name: "enter_insert_mode",
         description: "Enter insert mode",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.mode = editor::Mode::Insert;
-            Ok(())
-        }
+        handler: { editor.mode = editor::Mode::Insert; }
     },
     EnterCommandMode {
-        name: "enter_command_mode",
         description: "Enter command mode",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.mode = editor::Mode::Command;
-            Ok(())
-        }
+        handler: { editor.mode = editor::Mode::Command; }
     },
-    // Pane and buffer handling.
+    // // Pane and buffer handling.
     Open {
-        name: "open",
         description: "Open a file",
-        handler: |editor: &mut Editor, args: &CommandArgs| {
-            if args.num_positional() == 0 {
-                return Err(Error::MissingArguments("[FILE]".into()));
-            };
-
-            for path in args.iter_positional() {
-                if let Err(err) = editor.open_file(path) {
-                    return Err(Error::ExecutionError(err));
-                }
-            }
-            Ok(())
-        }
+        args: [ path: String ],
+        handler: { editor.open_file(self.path.clone())?; }
     },
     DuplicatePane {
-        name: "duplicate_pane",
         description: "Duplicate the current pane",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             let path = editor.pane_manager.active().file_name();
             if let Err(err) = editor.open_file(path) {
                 return Err(Error::ExecutionError(err));
             }
-            Ok(())
         }
     },
     ClosePane {
-        name: "close_pane",
         description: "Close the current pane",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.close_active_pane()?;
-            Ok(())
-        }
+        handler: { editor.close_active_pane()?; }
     },
     NextPane {
-        name: "next_pane",
         description: "Open next pane",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.next_pane();
-            Ok(())
-        }
+        handler: { editor.pane_manager.next_pane(); }
     },
     PrevPane {
-        name: "prev_pane",
         description: "Open previous pane",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.prev_pane();
-            Ok(())
-        }
+        handler: { editor.pane_manager.prev_pane(); }
     },
     ListBuffer {
-        name: "list_buffers",
         description: "Lists all open panes",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             let file_names: Vec<String> = editor.buffer_manager
                 .iter_buffer_names()
                 .enumerate()
                 .map(|(i, file)| format!("{}:{}", i + 1, file))
                 .collect();
             editor.show_message(&file_names.join(" "));
-            Ok(())
         }
     },
-    // Cursor movements.
+    // // Cursor movements.
     MoveCursorLeft {
-        name: "move_cursor_left",
         description: "Move the cursor left",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().move_cursor_left();
-            Ok(())
-        }
+        handler: { editor.pane_manager.active_mut().move_cursor_left(); }
     },
     MoveCursorRight {
-        name: "move_cursor_right",
         description: "Move the cursor right",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().move_cursor_right();
-            Ok(())
-        }
+        handler: { editor.pane_manager.active_mut().move_cursor_right(); }
     },
     MoveCursorUp {
-        name: "move_cursor_up",
         description: "Move the cursor up",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().move_cursor_up();
-            Ok(())
-        }
+        handler: { editor.pane_manager.active_mut().move_cursor_up(); }
     },
     MoveCursorDown {
-        name: "move_cursor_down",
         description: "Move the cursor down",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().move_cursor_down();
-            Ok(())
-        }
+        handler: { editor.pane_manager.active_mut().move_cursor_down(); }
     },
     MoveCursorToStartOfRow {
-        name: "move_cursor_to_start_of_row",
         description: "Move the cursor to the start of the row",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().move_cursor_to_start_of_row();
-            Ok(())
-        }
+        handler: { editor.pane_manager.active_mut().move_cursor_to_start_of_row(); }
     },
     MoveCursorToEndOfRow {
-        name: "move_cursor_to_end_of_row",
         description: "Move the cursor to the end of the row",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
-            editor.pane_manager.active_mut().move_cursor_to_end_of_row();
-            Ok(())
-        }
+        handler: { editor.pane_manager.active_mut().move_cursor_to_end_of_row(); }
     },
     // Text manipulation.
     InsertNewline {
-        name: "insert_newline",
         description: "Insert a newline",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             let buffer_mod = editor.pane_manager.active_mut().insert_newline();
             editor.pane_manager.handle_buffer_modification(&buffer_mod);
-            Ok(())
         }
     },
     DeleteChar {
-        name: "delete_char",
         description: "Delete the character under the cursor",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             let buffer_mod = editor.pane_manager.active_mut().delete_char();
             editor.pane_manager.handle_buffer_modification(&buffer_mod);
-            Ok(())
         }
     },
     DeleteCharBefore {
-        name: "delete_char_before",
         description: "Delete the character before the cursor",
-        handler: |editor: &mut Editor, _args: &CommandArgs| {
+        handler: {
             let buffer_mod = editor.pane_manager.active_mut().delete_char_before();
             editor.pane_manager.handle_buffer_modification(&buffer_mod);
-            Ok(())
         }
     },
 }

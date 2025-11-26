@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::editor::{
     backend::EditorBackend,
     buffer::{BufferEntry, manager::BufferManager},
-    command::{CommandArgs, CommandRegistry, register_commands},
+    command::{CommandRegistry, register_commands},
     command_palette::CommandPalette,
     keymap::Keymap,
     pane::manager::PaneManager,
@@ -30,7 +30,7 @@ use crate::editor::{
 
 pub mod backend;
 mod buffer;
-mod command;
+pub mod command;
 mod command_palette;
 mod keymap;
 mod pane;
@@ -197,14 +197,12 @@ impl Editor {
     pub fn handle_insert_mode_input(&mut self, event: Event) {
         match event {
             Event::Key(event) => {
-                if let Some(command_name) = self.keymap.get(&event) {
-                    if let Some(command) = self.command_registry.get(command_name) {
-                        // TODO: Store command arguments in keybindings.
-                        if let Err(err) = command.execute(self, &CommandArgs::default()) {
-                            self.show_err_message(&err.to_string());
-                        }
+                if let Some(command) = self.keymap.get(&event).cloned() {
+                    if let Err(err) = command.execute(self) {
+                        self.show_err_message(&err.to_string());
                     }
                 } else if let KeyCode::Char(c) = event.code {
+                    // TODO: Replace by a command.
                     self.pane_manager.active_mut().insert_char(c);
                 }
             }
@@ -231,14 +229,14 @@ impl Editor {
             match event.code {
                 KeyCode::Esc => self.exit_command_mode(),
                 KeyCode::Enter => {
-                    let (command, args) = self.command_palette.parse_query();
-                    match self.command_registry.get(&command) {
-                        None => self.show_err_message(&format!("No such command: {command}")),
+                    let command_name = self.command_palette.command_query();
+                    match self.command_palette.parse_query(&self.command_registry) {
                         Some(command) => {
-                            if let Err(err) = command.execute(self, &args) {
+                            if let Err(err) = command.execute(self) {
                                 self.show_err_message(&err.to_string());
                             }
                         }
+                        None => self.show_err_message(&format!("No such command found: {command_name}")),
                     }
                     self.exit_command_mode();
                 }
