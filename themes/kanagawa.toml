@@ -1,0 +1,12 @@
+name = "kanagawa"
+inherits = "default"
+
+[groups]
+"ui" = { fg = "#dcd7bA", bg = "1f1f28" }
+"ui.statusbar" = { bg = "#2a2a37" }
+"ui.statusbar.mode.insert" = { fg = "1f1f28", bg = "#76946a" }
+"ui.statusbar.mode.command" = { fg = "1f1f28", bg = "#ff9e3b" }
+"ui.pane.gutter" = { bg = "#2a2a37" }
+"ui.pane.gutter.cursor" = { fg = "#76946a" }
+"ui.overlay" = { bg = "#181820" }
+"ui.overlay.command_prompt.selected" = { fg = "#ff9e3b" }

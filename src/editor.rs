@@ -1,4 +1,4 @@
-use std::{fmt, path::Path};
+use std::{fmt, path::Path, sync::Arc};
 
 use crossterm::event::{Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
@@ -24,6 +24,7 @@ use crate::editor::{
             highlight_group::{
                 HL_UI_STATUSBAR_MODE_COMMAND, HL_UI_STATUSBAR_MODE_INSERT, HighlightGroup,
             },
+            registry::{DEFAULT_THEME_NAME, ThemeRegistry},
         },
     },
 };
@@ -46,6 +47,8 @@ pub enum Error {
     BufferError(#[from] buffer::Error),
     #[error(transparent)]
     BackendError(#[from] backend::Error),
+    #[error(transparent)]
+    ThemeRegistryError(#[from] ui::theme::registry::Error),
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -57,11 +60,11 @@ pub enum Mode {
     Command,
 }
 
-impl From<Mode> for HighlightGroup {
+impl From<Mode> for &HighlightGroup {
     fn from(value: Mode) -> Self {
         match value {
-            Mode::Insert => HL_UI_STATUSBAR_MODE_INSERT,
-            Mode::Command => HL_UI_STATUSBAR_MODE_COMMAND,
+            Mode::Insert => &HL_UI_STATUSBAR_MODE_INSERT,
+            Mode::Command => &HL_UI_STATUSBAR_MODE_COMMAND,
         }
     }
 }
@@ -95,8 +98,10 @@ pub struct Editor {
     keymap: Keymap,
     /// The prompt manager.
     prompt_manager: PromptManager,
-    /// The theme.
-    theme: Theme,
+    /// The theme registry for loading and managing themes.
+    theme_registry: ThemeRegistry,
+    /// The current theme.
+    theme: Arc<Theme>,
     // TODO: Make this into new editor state struct.
     /// The current mode.
     pub mode: Mode,
@@ -142,6 +147,16 @@ impl Editor {
             pane_manager.open_pane(buffer);
         }
 
+        // TODO: Set themes via config.
+        // Try to load a theme, otherwise fallback to the default.
+        let mut theme_registry = ThemeRegistry::default();
+        theme_registry.load_builtin_themes()?;
+        let theme = theme_registry
+            .themes
+            .get(DEFAULT_THEME_NAME)
+            .expect("default theme does not exist")
+            .clone();
+
         Ok(Self {
             buffer_manager,
             pane_manager,
@@ -152,7 +167,8 @@ impl Editor {
             command_palette,
             keymap: Keymap::default(),
             prompt_manager,
-            theme: Theme::fallback(),
+            theme_registry,
+            theme,
             mode,
             status_message: None,
             should_quit: false,

@@ -6,7 +6,7 @@ use crate::editor::{
         theme::highlight_group::{HL_UI_COMMAND_PROMPT, HL_UI_COMMAND_PROMPT_SELECTED},
         viewport::Viewport,
         widget::{
-            container::{Alignment, ContainerBuilder},
+            container::{ContainerBuilder},
             span::Span,
         },
     },

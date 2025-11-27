@@ -7,4 +7,6 @@ edition = "2024"
 clap = { version = "4.5.51", features = ["derive"] }
 crossterm = "0.29.0"
 define_commands_macro = { path = "./define_commands_macro" }
+serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.17"
+toml = "0.9.8"

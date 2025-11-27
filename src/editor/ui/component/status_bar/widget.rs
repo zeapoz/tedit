@@ -17,7 +17,7 @@ pub struct ModeWidget {
 
 impl ModeWidget {
     pub fn new(ctx: &RenderingContext) -> Self {
-        let style = ctx.theme.resolve(&ctx.mode.into());
+        let style = ctx.theme.resolve(ctx.mode.into());
         Self {
             container: ContainerBuilder::default()
                 .with_child(WhitespaceSeparator::default())

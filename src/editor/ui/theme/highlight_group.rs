@@ -1,14 +1,32 @@
+use serde::Deserialize;
+use std::sync::{Arc, LazyLock};
+
 use crate::editor::{
     Color,
     ui::theme::{Style, ThemeEntry},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HighlightGroup(pub &'static str);
+pub struct HighlightGroup(Arc<str>);
 
-impl From<&'static str> for HighlightGroup {
-    fn from(value: &'static str) -> Self {
-        Self(value)
+impl HighlightGroup {
+    pub fn new<S: AsRef<str>>(name: S) -> Self {
+        Self(Arc::from(name.as_ref()))
+    }
+
+    /// Returns the name of this highlight group.
+    pub fn name(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for HighlightGroup {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(HighlightGroup::new(s))
     }
 }
 
@@ -20,17 +38,18 @@ macro_rules! highlight_groups {
         ),* $(,)?
     ) => {
         $(
-            pub const $id: HighlightGroup = HighlightGroup($name);
+            pub static $id: LazyLock<HighlightGroup> =
+                LazyLock::new(|| HighlightGroup::new($name));
         )*
 
         pub fn all_highlight_groups() -> Vec<(HighlightGroup, ThemeEntry)> {
             vec![
                 $(
                     (
-                        $name.into(),
+                        HighlightGroup::new($name),
                         ThemeEntry {
                             style: $style,
-                            parent: None $( .or(Some($parent.into())) )?,
+                            parent: None $( .or(Some(HighlightGroup::new($parent))) )?,
                         }
                     )
                 ),*
@@ -39,6 +58,7 @@ macro_rules! highlight_groups {
     };
 }
 
+// Default theme colors.
 const FG_0: Color = Color::rgb(220, 220, 220);
 const FG_1: Color = Color::rgb(140, 140, 140);
 const BG_0: Color = Color::rgb(30, 30, 30);

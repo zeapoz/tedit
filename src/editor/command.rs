@@ -121,6 +121,25 @@ define_commands! {
         description: "Enter command mode",
         handler: { editor.mode = editor::Mode::Command; }
     },
+    Theme {
+        description: "Change the current theme",
+        args: [ theme: String ],
+        handler: {
+            if let Some(theme) = editor.theme_registry.themes.get(&self.theme) {
+                editor.theme = theme.clone();
+                editor.show_message(&format!("Loaded theme: {}", self.theme));
+            } else {
+                editor.show_err_message(&format!("No such theme: {}", self.theme));
+            }
+        },
+    },
+    ListThemes {
+        description: "Lists all loaded themes",
+        handler: {
+           let themes = editor.theme_registry.list_themes();
+           editor.show_message(&themes.join(" "));
+        },
+    },
     // // Pane and buffer handling.
     Open {
         description: "Open a file",
@@ -148,7 +167,7 @@ define_commands! {
         description: "Open previous pane",
         handler: { editor.pane_manager.prev_pane(); }
     },
-    ListBuffer {
+    ListBuffers {
         description: "Lists all open panes",
         handler: {
             let file_names: Vec<String> = editor.buffer_manager

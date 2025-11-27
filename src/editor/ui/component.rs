@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::editor::{
     Editor, Mode,
     pane::manager::PaneManager,
@@ -14,7 +16,7 @@ pub mod status_bar;
 /// A context for rendering objects.
 pub struct RenderingContext {
     pub mode: Mode,
-    pub theme: Theme,
+    pub theme: Arc<Theme>,
     pub pane_manager: PaneManager,
     pub status_message: Option<Message>,
     pub editor_view: Rect,

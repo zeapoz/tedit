@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 /// A color in the terminal.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -27,6 +29,17 @@ pub enum Color {
     AnsiValue(u8),
 }
 
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let color = Color::hex(&s);
+        Ok(color)
+    }
+}
+
 impl Color {
     /// Returns a color from an rgb value.
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
@@ -44,7 +57,8 @@ impl Color {
 }
 
 /// The font intensity.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum FontIntensity {
     #[default]
     Normal,
@@ -53,7 +67,7 @@ pub enum FontIntensity {
 }
 
 /// The style of a single cell.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Style {
     pub fg: Option<Color>,
     pub bg: Option<Color>,
@@ -113,7 +127,7 @@ impl Style {
 
     /// Applies the given style to this style and overwrites all set values from the given style.
     pub fn force_apply(&mut self, other: Self) {
-        self.fg = other.fg.or(self.bg);
+        self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
         self.intensity = other.intensity.or(self.intensity);
         self.underline = other.underline.or(self.underline);
@@ -126,6 +140,15 @@ impl Style {
         self.bg = self.bg.or(other.bg);
         self.intensity = self.intensity.or(other.intensity);
         self.underline = self.underline.or(other.underline);
+        self
+    }
+
+    /// Applies the given style to this style and overwrites all set values from the given style.
+    pub fn force_applied(mut self, other: Self) -> Self {
+        self.fg = other.fg.or(self.fg);
+        self.bg = other.bg.or(self.bg);
+        self.intensity = other.intensity.or(self.intensity);
+        self.underline = other.underline.or(self.underline);
         self
     }
 
