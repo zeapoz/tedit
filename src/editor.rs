@@ -1,4 +1,8 @@
-use std::{fmt, path::Path, sync::Arc};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crossterm::event::{Event, KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use thiserror::Error;
@@ -8,6 +12,7 @@ use crate::editor::{
     buffer::{BufferEntry, manager::BufferManager},
     command::{CommandRegistry, register_commands},
     command_palette::CommandPalette,
+    config::Config,
     keymap::Keymap,
     pane::{cursor::CursorMovement, manager::PaneManager},
     prompt::{
@@ -24,7 +29,7 @@ use crate::editor::{
             highlight_group::{
                 HL_UI_STATUSBAR_MODE_COMMAND, HL_UI_STATUSBAR_MODE_INSERT, HighlightGroup,
             },
-            registry::{DEFAULT_THEME_NAME, ThemeRegistry},
+            registry::ThemeRegistry,
         },
     },
 };
@@ -33,6 +38,7 @@ pub mod backend;
 mod buffer;
 pub mod command;
 mod command_palette;
+pub mod config;
 mod keymap;
 mod pane;
 mod prompt;
@@ -103,6 +109,8 @@ pub struct Editor {
     /// The current theme.
     theme: Arc<Theme>,
     // TODO: Make this into new editor state struct.
+    /// The editor configuration.
+    pub config: Config,
     /// The current mode.
     pub mode: Mode,
     /// An optional message to display in the status bar.
@@ -113,9 +121,23 @@ pub struct Editor {
 
 impl Editor {
     /// Returns a new editor.
-    pub fn new<P: AsRef<Path>>(files: Option<Vec<P>>) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(
+        files: Option<Vec<P>>,
+        config_path: Option<PathBuf>,
+    ) -> Result<Self> {
         let renderer = Renderer::initialize()?;
         let backend = EditorBackend;
+
+        let mut status_message = None;
+
+        // Try to load the configuration.
+        let config = Config::load(config_path).unwrap_or_else(|e| {
+            let err_message = Message::new(&format!(
+                "Failed to load configuration, using default configuration: {e}"
+            ));
+            status_message = Some(err_message);
+            Config::default()
+        });
 
         // Open a buffer via the buffer manager.
         let mut buffer_manager = BufferManager::default();
@@ -147,15 +169,21 @@ impl Editor {
             pane_manager.open_pane(buffer);
         }
 
-        // TODO: Set themes via config.
         // Try to load a theme, otherwise fallback to the default.
         let mut theme_registry = ThemeRegistry::default();
         theme_registry.load_builtin_themes()?;
-        let theme = theme_registry
-            .themes
-            .get(DEFAULT_THEME_NAME)
-            .expect("default theme does not exist")
-            .clone();
+
+        let theme = if let Some(ref name) = config.editor.theme {
+            match theme_registry.themes.get(name) {
+                Some(theme) => theme.clone(),
+                None => {
+                    status_message = Some(Message::new(&format!("Error: theme not found: {name}")));
+                    theme_registry.get_default_theme()
+                }
+            }
+        } else {
+            theme_registry.get_default_theme()
+        };
 
         Ok(Self {
             buffer_manager,
@@ -170,8 +198,9 @@ impl Editor {
             theme_registry,
             theme,
             mode,
-            status_message: None,
+            status_message,
             should_quit: false,
+            config,
         })
     }
 

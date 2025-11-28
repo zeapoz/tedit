@@ -88,6 +88,7 @@ impl Component for StatusBar {
             .with_child(FileWidget::new(ctx))
             .build()
             .with_whitespace_separator(1);
+        // TODO: Make this expand.
         let center_container = ContainerBuilder::default()
             .with_child(MessageWidget::new(ctx))
             .with_alignment(Alignment::Center)

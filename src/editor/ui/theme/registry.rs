@@ -58,6 +58,11 @@ impl ThemeRegistry {
         self.parse_and_load_theme(KANAGAWA_THEME)
     }
 
+    /// Returns the default theme.
+    pub fn get_default_theme(&self) -> Arc<Theme> {
+        self.themes.get(DEFAULT_THEME_NAME).unwrap().clone()
+    }
+
     /// Returns a list of all loaded themes.
     pub fn list_themes(&self) -> Vec<String> {
         self.themes.keys().map(|k| k.to_string()).collect()

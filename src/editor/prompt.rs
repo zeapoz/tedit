@@ -4,7 +4,6 @@ use crossterm::event::KeyEvent;
 
 use crate::editor::{
     self, Editor,
-    command::Command,
     prompt::{confirm::ConfirmPrompt, files::FilesPrompt, search::SearchPrompt},
     ui::{
         component::{Component, RenderingContext},

@@ -96,6 +96,7 @@ pub struct MessageWidget {
 
 impl MessageWidget {
     pub fn new(ctx: &RenderingContext) -> Self {
+        // TODO: Style based on message type.
         let message = ctx
             .status_message
             .as_ref()
