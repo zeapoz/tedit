@@ -66,6 +66,7 @@ const BG_1: Color = Color::rgb(40, 40, 40);
 const BG_2: Color = Color::rgb(50, 50, 50);
 const GREEN: Color = Color::rgb(100, 200, 0);
 const ORANGE: Color = Color::rgb(255, 100, 0);
+const RED: Color = Color::rgb(255, 0, 0);
 
 highlight_groups! {
     // Base UI Colors.
@@ -74,6 +75,7 @@ highlight_groups! {
     (HL_UI_STATUSBAR => "ui.statusbar", Style::new().bg(BG_1), parent: "ui"),
     (HL_UI_STATUSBAR_MODE_INSERT => "ui.statusbar.mode.insert", Style::new().bg(GREEN).fg(BG_0).bold(), parent: "ui.statusbar"),
     (HL_UI_STATUSBAR_MODE_COMMAND => "ui.statusbar.mode.command", Style::new().bg(ORANGE).fg(BG_0).bold(), parent: "ui.statusbar"),
+    (HL_UI_STATUSBAR_MESSAGE_ERROR => "ui.statusbar.message.error", Style::new().bg(RED).fg(BG_0).bold(), parent: "ui.statusbar"),
     // Pane.
     (HL_UI_PANE => "ui.pane", Style::default(), parent: "ui"),
     (HL_UI_PANE_GUTTER => "ui.pane.gutter", Style::new().bg(BG_1).fg(FG_1), parent: "ui.pane"),

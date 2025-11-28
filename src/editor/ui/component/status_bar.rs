@@ -13,6 +13,13 @@ use crate::editor::ui::{
     widget::container::{Alignment, ContainerBuilder},
 };
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum MessageType {
+    #[default]
+    Info,
+    Error,
+}
+
 #[derive(Debug, Clone)]
 pub struct Message {
     /// The content of the message.
@@ -21,6 +28,8 @@ pub struct Message {
     set_time: Instant,
     /// The duration for which the message should be displayed.
     duration: Duration,
+    /// The type of the message.
+    message_type: MessageType,
 }
 
 impl Message {
@@ -33,6 +42,7 @@ impl Message {
             content: content.to_string(),
             set_time: Instant::now(),
             duration: Self::DEFAULT_MESSAGE_TIMEOUT,
+            message_type: MessageType::default(),
         }
     }
 
@@ -42,9 +52,18 @@ impl Message {
         self
     }
 
+    /// Sets the message type.
+    pub fn with_type(mut self, message_type: MessageType) -> Self {
+        self.message_type = message_type;
+        self
+    }
+
     /// Returns the content of the message.
-    pub fn text(&self) -> &str {
-        &self.content
+    pub fn text(&self) -> String {
+        match self.message_type {
+            MessageType::Info => self.content.clone(),
+            MessageType::Error => format!("Error: {}", self.content),
+        }
     }
 
     /// Returns true if the message has timed out.

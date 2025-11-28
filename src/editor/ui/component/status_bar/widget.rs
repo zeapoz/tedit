@@ -1,7 +1,8 @@
 use crate::editor::ui::{
-    component::RenderingContext,
+    component::{RenderingContext, status_bar::MessageType},
     frame::Cell,
     style::Style,
+    theme::highlight_group::HL_UI_STATUSBAR_MESSAGE_ERROR,
     widget::{
         Widget,
         container::{Container, ContainerBuilder},
@@ -96,16 +97,23 @@ pub struct MessageWidget {
 
 impl MessageWidget {
     pub fn new(ctx: &RenderingContext) -> Self {
-        // TODO: Style based on message type.
-        let message = ctx
-            .status_message
-            .as_ref()
+        let status_messsage = ctx.status_message.as_ref();
+        let message = status_messsage
             .map(|m| m.text().to_string())
             .unwrap_or_default();
+
+        let style = if let Some(message) = status_messsage
+            && message.message_type == MessageType::Error
+        {
+            ctx.theme.resolve(&HL_UI_STATUSBAR_MESSAGE_ERROR)
+        } else {
+            Style::default()
+        };
 
         Self {
             container: ContainerBuilder::default()
                 .with_child(Span::new(&message))
+                .with_style(style)
                 .build(),
         }
     }

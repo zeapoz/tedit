@@ -21,7 +21,10 @@ use crate::editor::{
     },
     renderer::{Renderer, compositor::Compositor},
     ui::{
-        component::{RenderingContext, status_bar::Message},
+        component::{
+            RenderingContext,
+            status_bar::{Message, MessageType},
+        },
         geometry::{point::Point, rect::Rect},
         style::Color,
         theme::{
@@ -134,7 +137,8 @@ impl Editor {
         let config = Config::load(config_path).unwrap_or_else(|e| {
             let err_message = Message::new(&format!(
                 "Failed to load configuration, using default configuration: {e}"
-            ));
+            ))
+            .with_type(MessageType::Error);
             status_message = Some(err_message);
             Config::default()
         });
@@ -177,7 +181,10 @@ impl Editor {
             match theme_registry.themes.get(name) {
                 Some(theme) => theme.clone(),
                 None => {
-                    status_message = Some(Message::new(&format!("Error: theme not found: {name}")));
+                    status_message = Some(
+                        Message::new(&format!("Theme not found: {name}"))
+                            .with_type(MessageType::Error),
+                    );
                     theme_registry.get_default_theme()
                 }
             }
@@ -331,7 +338,8 @@ impl Editor {
 
     /// Shows an error message in the status bar.
     pub fn show_err_message(&mut self, s: &str) {
-        self.show_message(&format!("Error: {s}"))
+        let message = Message::new(s).with_type(MessageType::Error);
+        self.status_message = Some(message);
     }
 
     /// Exits command mode and cleans up the stored query.
