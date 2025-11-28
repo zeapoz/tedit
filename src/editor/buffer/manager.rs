@@ -38,6 +38,7 @@ impl BufferManager {
     fn add(&mut self, buffer: Buffer) -> BufferEntry {
         let buffer = Arc::new(RwLock::new(buffer));
         let entry = BufferEntry::new(self.next_id, buffer);
+        self.next_id += 1;
         self.buffers.push(entry.clone());
         entry
     }
@@ -74,10 +75,8 @@ impl BufferManager {
         Ok(())
     }
 
-    /// Returns an iterator over all buffer names.
-    pub fn iter_buffer_names(&self) -> impl Iterator<Item = String> {
-        self.buffers
-            .iter()
-            .map(|entry| entry.buffer.read().unwrap().file_name())
+    /// Returns an iterator over all buffers.
+    pub fn iter(&self) -> impl Iterator<Item = &BufferEntry> {
+        self.buffers.iter()
     }
 }

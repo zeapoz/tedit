@@ -188,12 +188,22 @@ define_commands! {
         handler: { editor.pane_manager.prev_pane(); }
     },
     ListBuffers {
-        description: "Lists all open panes",
+        description: "Lists all open buffers",
         handler: {
-            let file_names: Vec<String> = editor.buffer_manager
-                .iter_buffer_names()
-                .enumerate()
-                .map(|(i, file)| format!("{}:{}", i + 1, file))
+            let file_names: Vec<String> = editor
+                .buffer_manager
+                .iter()
+                .map(|entry| {
+                    format!(
+                        "{}:{}",
+                        entry.id.saturating_add(1),
+                        entry
+                            .buffer
+                            .try_read()
+                            .map(|b| b.file_name())
+                            .unwrap_or("Failed to read filename".to_string())
+                    )
+                })
                 .collect();
             editor.show_message(&file_names.join(" "));
         }
