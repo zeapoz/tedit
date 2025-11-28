@@ -1,8 +1,11 @@
+use std::path::PathBuf;
+
 use crossterm::event::KeyEvent;
 
 use crate::editor::{
     self, Editor,
-    prompt::{confirm::ConfirmPrompt, search::SearchPrompt},
+    command::Command,
+    prompt::{confirm::ConfirmPrompt, files::FilesPrompt, search::SearchPrompt},
     ui::{
         component::{Component, RenderingContext},
         geometry::{point::Point, rect::Rect},
@@ -11,6 +14,7 @@ use crate::editor::{
 };
 
 pub mod confirm;
+pub mod files;
 pub mod search;
 
 /// A trait for defining prompts.
@@ -30,6 +34,7 @@ pub trait Prompt: Clone + Component {
 pub enum PromptType {
     Confirm(ConfirmPrompt),
     Search(SearchPrompt),
+    Files(FilesPrompt),
 }
 
 impl PromptType {
@@ -39,6 +44,7 @@ impl PromptType {
         match self {
             Self::Confirm(prompt) => prompt.process_key(event),
             Self::Search(prompt) => prompt.process_key(event),
+            Self::Files(prompt) => prompt.process_key(event),
         }
     }
 
@@ -47,6 +53,7 @@ impl PromptType {
         match self {
             Self::Confirm(prompt) => prompt.on_changed(),
             Self::Search(prompt) => prompt.on_changed(),
+            Self::Files(prompt) => prompt.on_changed(),
         }
     }
 
@@ -55,6 +62,7 @@ impl PromptType {
         match self {
             Self::Confirm(prompt) => prompt.rect(parent),
             Self::Search(prompt) => prompt.rect(parent),
+            Self::Files(prompt) => prompt.rect(parent),
         }
     }
 
@@ -63,6 +71,7 @@ impl PromptType {
         match self {
             Self::Confirm(prompt) => prompt.render(ctx, viewport),
             Self::Search(prompt) => prompt.render(ctx, viewport),
+            Self::Files(prompt) => prompt.render(ctx, viewport),
         }
     }
 }
@@ -77,6 +86,7 @@ pub enum PromptResponse {
     No,
     Cancel,
     Text(String),
+    File(PathBuf),
 }
 
 /// An action that can be returned by the prompt to be handled by the editor.
@@ -87,7 +97,6 @@ pub enum PromptAction {
 }
 
 /// Represents the status of a prompt.
-#[derive(Debug, Clone, PartialEq)]
 pub enum PromptStatus {
     /// Emitted when the prompt is done.
     Done(PromptResponse),

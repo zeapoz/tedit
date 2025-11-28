@@ -244,7 +244,7 @@ impl Buffer {
 
         self.filepath
             .as_ref()
-            .map(|f| f.to_string_lossy().to_string())
+            .map(|f| f.to_string_lossy().trim_start_matches("./").to_string())
             .unwrap_or(NO_FILENAME.into())
     }
 

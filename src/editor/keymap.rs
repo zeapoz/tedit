@@ -39,7 +39,8 @@ impl Default for Keymap {
             KeyCode::Char('q'), KeyModifiers::CONTROL => Quit {},
             KeyCode::Char('s'), KeyModifiers::CONTROL => Save { path: None },
             KeyCode::Char('p'), KeyModifiers::CONTROL => EnterCommandMode {},
-            KeyCode::Char('f'), KeyModifiers::CONTROL => OpenSearch {},
+            KeyCode::Char('s'), KeyModifiers::CONTROL => OpenSearch {},
+            KeyCode::Char('f'), KeyModifiers::CONTROL => OpenFilesPicker { dir: None },
             // Cursor movements.
             KeyCode::Left, KeyModifiers::NONE => MoveCursorLeft {},
             KeyCode::Right, KeyModifiers::NONE => MoveCursorRight {},

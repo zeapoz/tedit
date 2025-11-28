@@ -1,4 +1,4 @@
-use crate::editor::pane::cursor::CursorMovement;
+use crate::editor::{pane::cursor::CursorMovement, prompt::files::FilesPrompt};
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use define_commands_macro::define_commands;
@@ -120,6 +120,26 @@ define_commands! {
     EnterCommandMode {
         description: "Enter command mode",
         handler: { editor.mode = editor::Mode::Command; }
+    },
+    OpenFilesPicker {
+        description: "Open a file picker",
+        args: [ dir: Option<String> ],
+        handler: {
+            let Ok(prompt) = FilesPrompt::new(self.dir.as_deref()) else {
+                editor.show_err_message("Failed to open file picker");
+                return Ok(());
+            };
+
+            editor.prompt_manager.show_prompt(
+                PromptType::Files(prompt),
+                |editor, response| {
+                    if let PromptResponse::File(ref file) = response {
+                        editor.open_file(file)?;
+                    }
+                    Ok(())
+                }
+            );
+        }
     },
     Theme {
         description: "Change the current theme",
